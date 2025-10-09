@@ -20,12 +20,15 @@ class SalesforceExporter:
 
     def __init__(self, config: AppConfig) -> None:
         self.config = config
-        session_id, instance = SalesforceLogin(
-            username=config.salesforce.username,
-            password=config.salesforce.password,
-            security_token=config.salesforce.security_token,
-            domain=config.salesforce.domain,
-        )
+        login_kwargs = {
+            "username": config.salesforce.username,
+            "password": config.salesforce.password,
+            "domain": config.salesforce.domain,
+        }
+        if config.salesforce.security_token:
+            login_kwargs["security_token"] = config.salesforce.security_token
+
+        session_id, instance = SalesforceLogin(**login_kwargs)
         self.sf = Salesforce(instance=instance, session_id=session_id)
 
     def run(self) -> None:
