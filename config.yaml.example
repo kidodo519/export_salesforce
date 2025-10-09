@@ -1,0 +1,40 @@
+# Example configuration for the Salesforce exporter.
+
+s3_info:
+  bucket_name: onsen-jasper-importer-prod-data-xxxxx
+  access_key_id: 'xxxxxxxx'
+  secret_access_key: 'xxxxxxx'
+  file_name: 'pms-reservations/あらや滔々庵_'
+
+csv:
+  output_directory: data/tmp
+  archive_directory: data/archive
+
+salesforce:
+  username: your-salesforce-username
+  password: your-salesforce-password
+  security_token: your-salesforce-security-token
+  domain: login  # or 'test' for sandbox
+
+# Timezone used for timestamped file names and incremental windows
+timezone: Asia/Tokyo
+
+incremental:
+  field: LastModifiedDate
+  where_template: "{field} >= {start_iso} AND {field} < {end_iso}"
+  window_days: 1
+  end_offset_days: 1  # 1 day look-back so we only fetch data up to yesterday
+
+queries:
+  - name: Reservation
+    soql: |
+      SELECT Id, Name, LastModifiedDate
+      FROM Reservation__c
+    # Optional custom WHERE clause. When omitted the incremental template above is used.
+    # where: "LastModifiedDate >= 2023-01-01T00:00:00Z"
+    output_file: reservations
+  - name: Account
+    soql: |
+      SELECT Id, Name, LastModifiedDate
+      FROM Account
+    output_file: accounts
