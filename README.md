@@ -2,6 +2,19 @@
 
 Salesforce から複数のオブジェクトを取得し、CSV 形式に変換して Amazon S3 へアップロードするバッチです。設定ファイルで SOQL・増分抽出条件・S3 などを管理します。
 
+## 変更点の概要
+
+リポジトリに含まれる主なコンポーネントと役割は次の通りです。どのファイルが何を担っているかを把握しやすいように、構成を一覧化しました。
+
+| ファイル / ディレクトリ | 役割 |
+| --- | --- |
+| `main.py` | 設定ファイルを読み込み、エクスポート処理を起動するエントリーポイントです。 |
+| `salesforce_exporter/config.py` | YAML 設定をデータクラスに読み込み、増分条件の計算や検証を行います。 |
+| `salesforce_exporter/exporter.py` | Salesforce から SOQL を実行し、CSV 出力・S3 アップロードをまとめて処理します。 |
+| `salesforce_exporter/s3_uploader.py` | S3 へのアップロードや成功後のアーカイブ処理を担います。 |
+| `config.yaml.example` | 実際に編集する `config.yaml` のサンプルです。 |
+| `requirements.txt` | 必要な Python ライブラリをまとめています。 |
+
 ## 必要環境
 
 - Python 3.10 以降
