@@ -13,6 +13,7 @@ csv:
 salesforce:
   username: your-salesforce-username
   password: your-salesforce-password
+  # security_token can be omitted or left blank when IP restrictions make it unnecessary
   security_token: your-salesforce-security-token
   domain: login  # or 'test' for sandbox
 

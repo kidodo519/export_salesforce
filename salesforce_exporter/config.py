@@ -72,7 +72,7 @@ class QueryConfig:
 class SalesforceAuth:
     username: str
     password: str
-    security_token: str
+    security_token: Optional[str] = None
     domain: str = "login"
 
 
@@ -129,10 +129,14 @@ class AppConfig:
             )
 
         salesforce_raw = raw_config["salesforce"]
+        security_token = salesforce_raw.get("security_token")
+        if security_token == "":
+            security_token = None
+
         salesforce_auth = SalesforceAuth(
             username=salesforce_raw["username"],
             password=salesforce_raw["password"],
-            security_token=salesforce_raw["security_token"],
+            security_token=security_token,
             domain=salesforce_raw.get("domain", "login"),
         )
 

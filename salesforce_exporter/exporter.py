@@ -7,7 +7,7 @@ import logging
 from datetime import datetime
 
 import pandas as pd
-from simple_salesforce import Salesforce
+from simple_salesforce import Salesforce, SalesforceLogin
 
 from .config import AppConfig, QueryConfig
 from .s3_uploader import upload_to_s3
@@ -18,14 +18,21 @@ LOGGER = logging.getLogger(__name__)
 class SalesforceExporter:
     """Export data from Salesforce and upload it to S3."""
 
+    
     def __init__(self, config: AppConfig) -> None:
         self.config = config
-        self.sf = Salesforce(
-            username=config.salesforce.username,
-            password=config.salesforce.password,
-            security_token=config.salesforce.security_token,
-            domain=config.salesforce.domain,
-        )
+
+        login_kwargs = {
+            "username": config.salesforce.username,
+            "password": config.salesforce.password,
+            "domain": config.salesforce.domain,
+        }
+        if config.salesforce.security_token:
+            login_kwargs["security_token"] = config.salesforce.security_token
+
+        session_id, instance = SalesforceLogin(**login_kwargs)
+        self.sf = Salesforce(instance=instance, session_id=session_id)
+
 
     def run(self) -> None:
         LOGGER.info("Starting Salesforce export for %d query(ies)", len(self.config.queries))
