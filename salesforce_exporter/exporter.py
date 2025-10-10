@@ -18,8 +18,10 @@ LOGGER = logging.getLogger(__name__)
 class SalesforceExporter:
     """Export data from Salesforce and upload it to S3."""
 
+    
     def __init__(self, config: AppConfig) -> None:
         self.config = config
+
         login_kwargs = {
             "username": config.salesforce.username,
             "password": config.salesforce.password,
@@ -30,6 +32,7 @@ class SalesforceExporter:
 
         session_id, instance = SalesforceLogin(**login_kwargs)
         self.sf = Salesforce(instance=instance, session_id=session_id)
+
 
     def run(self) -> None:
         LOGGER.info("Starting Salesforce export for %d query(ies)", len(self.config.queries))

@@ -15,6 +15,7 @@ Salesforce から複数のオブジェクトを取得し、CSV 形式に変換�
 | `config.yaml.example` | 実際に編集する `config.yaml` のサンプルです。 |
 | `requirements.txt` | 必要な Python ライブラリをまとめています。 |
 
+
 ## 必要環境
 
 - Python 3.10 以降
