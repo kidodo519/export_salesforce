@@ -33,9 +33,15 @@ queries:
       FROM Reservation__c
     # Optional custom WHERE clause. When omitted the incremental template above is used.
     # where: "LastModifiedDate >= 2023-01-01T00:00:00Z"
+    # Override incremental settings per query (optional)
+    # incremental:
+    #   field: Custom_Updated_At__c
+    #   window_days: 7
     output_file: reservations
   - name: Account
     soql: |
       SELECT Id, Name, LastModifiedDate
       FROM Account
+    # Disable incremental loading and always export all data for this query
+    incremental: false
     output_file: accounts
