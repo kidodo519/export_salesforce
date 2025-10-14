@@ -36,21 +36,77 @@ class IncrementalConfig:
     window_days: int = 1
     end_offset_days: int = 1
 
-    def render_where_clause(self, tz: ZoneInfo) -> str:
+    def render_where_clause(
+        self,
+        tz: ZoneInfo,
+        overrides: Optional[Dict[str, Any]] = None,
+    ) -> str:
         """Render the WHERE clause using the configured template."""
 
+        window_days = self.window_days
+        end_offset_days = self.end_offset_days
+        field = self.field
+        where_template = self.where_template
+
+        if overrides:
+            if "window_days" in overrides and overrides["window_days"] is not None:
+                window_days = int(overrides["window_days"])
+            if "end_offset_days" in overrides and overrides["end_offset_days"] is not None:
+                end_offset_days = int(overrides["end_offset_days"])
+            if "field" in overrides and overrides["field"]:
+                field = overrides["field"]
+            if "where_template" in overrides and overrides["where_template"]:
+                where_template = overrides["where_template"]
+
         now = datetime.now(tz)
-        end_time = now - timedelta(days=self.end_offset_days)
-        start_time = end_time - timedelta(days=self.window_days)
+        end_time = now - timedelta(days=end_offset_days)
+        start_time = end_time - timedelta(days=window_days)
 
         replacements = {
-            "field": self.field,
+            "field": field,
             "start_iso": start_time.isoformat(),
             "end_iso": end_time.isoformat(),
             "start_date": start_time.date().isoformat(),
             "end_date": end_time.date().isoformat(),
         }
-        return self.where_template.format(**replacements)
+        return where_template.format(**replacements)
+
+
+@dataclass
+class QueryIncrementalConfig:
+    disabled: bool = False
+    field: Optional[str] = None
+    where_template: Optional[str] = None
+    window_days: Optional[int] = None
+    end_offset_days: Optional[int] = None
+
+    @classmethod
+    def from_raw(cls, raw: Any) -> "QueryIncrementalConfig":
+        if raw is None or raw is True:
+            return cls()
+        if raw is False:
+            return cls(disabled=True)
+        if not isinstance(raw, dict):
+            raise ValueError("Query incremental configuration must be a mapping or boolean")
+
+        return cls(
+            field=raw.get("field"),
+            where_template=raw.get("where_template"),
+            window_days=raw.get("window_days"),
+            end_offset_days=raw.get("end_offset_days"),
+        )
+
+    def overrides(self) -> Dict[str, Any]:
+        overrides: Dict[str, Any] = {}
+        if self.field:
+            overrides["field"] = self.field
+        if self.where_template:
+            overrides["where_template"] = self.where_template
+        if self.window_days is not None:
+            overrides["window_days"] = self.window_days
+        if self.end_offset_days is not None:
+            overrides["end_offset_days"] = self.end_offset_days
+        return overrides
 
 
 @dataclass
@@ -59,6 +115,7 @@ class QueryConfig:
     soql: str
     where: Optional[str] = None
     output_file: Optional[str] = None
+    incremental: Optional[QueryIncrementalConfig] = None
 
     def build_query(self) -> str:
         if self.where:
@@ -141,21 +198,55 @@ class AppConfig:
         )
 
         queries_raw: Iterable[Dict[str, Any]] = raw_config.get("queries", [])
-        queries = [
-            QueryConfig(
+        queries: List[QueryConfig] = []
+        for query_raw in queries_raw:
+            incremental_override = (
+                QueryIncrementalConfig.from_raw(query_raw.get("incremental"))
+                if "incremental" in query_raw
+                else None
+            )
+
+            query = QueryConfig(
                 name=query_raw["name"],
                 soql=query_raw["soql"],
                 where=query_raw.get("where"),
                 output_file=query_raw.get("output_file"),
+                incremental=incremental_override,
             )
-            for query_raw in queries_raw
-        ]
+            queries.append(query)
 
-        if incremental:
-            rendered_where = incremental.render_where_clause(timezone)
-            for query in queries:
-                if query.where is None:
-                    query.where = rendered_where
+        for query in queries:
+            if query.where is not None:
+                continue
+
+            if query.incremental and query.incremental.disabled:
+                continue
+
+            overrides = query.incremental.overrides() if query.incremental else {}
+            if incremental:
+                query.where = incremental.render_where_clause(
+                    timezone, overrides=overrides or None
+                )
+            elif overrides:
+                missing_keys = {
+                    key
+                    for key in ("field", "where_template")
+                    if not overrides.get(key)
+                }
+                if missing_keys:
+                    missing = ", ".join(sorted(missing_keys))
+                    raise ValueError(
+                        "Per-query incremental configuration requires "
+                        f"{missing} when no global incremental settings are defined"
+                    )
+
+                temp_incremental = IncrementalConfig(
+                    field=overrides["field"],
+                    where_template=overrides["where_template"],
+                    window_days=int(overrides.get("window_days", 1)),
+                    end_offset_days=int(overrides.get("end_offset_days", 1)),
+                )
+                query.where = temp_incremental.render_where_clause(timezone)
 
         return cls(
             s3=s3_info,
@@ -171,7 +262,9 @@ __all__ = [
     "AppConfig",
     "CsvConfig",
     "IncrementalConfig",
+    "QueryIncrementalConfig",
     "QueryConfig",
     "S3Info",
     "SalesforceAuth",
 ]
+
