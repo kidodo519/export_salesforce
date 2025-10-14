@@ -55,6 +55,8 @@ python main.py --config config.yaml
   - `soql` は WHERE 句を除いた SOQL を記載します。テンプレートで生成した WHERE 句が自動的に付与されます。手動で `where` を指定するとその条件を使用します。
   - `output_file` を指定すると CSV ファイル名に利用されます。
   - `incremental` をクエリ単位で指定すると、増分取得の設定を上書きまたは無効化できます。`false` を指定すると常に全件出力、マップ形式で `field` や `window_days` を設定するとその値を使用します。
+  - `relationship_filters` を指定すると、先に実行したクエリの結果から ID を収集して `IN` 条件を自動生成できます。`source_query`（参照元クエリ名）、`source_field`（参照元の列名）、`target_field`（対象クエリでフィルタする列名）を設定すると、取得した ID を `target_field IN (...)` 形式で追加します。ID が多い場合に備えて `chunk_size`（既定値 200）で分割し、複数回に分けて SOQL を実行します。
+
 
 ## ファイル出力と S3 アップロード
 

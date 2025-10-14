@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
@@ -110,19 +110,60 @@ class QueryIncrementalConfig:
 
 
 @dataclass
+class QueryRelationshipFilter:
+    source_query: str
+    source_field: str
+    target_field: str
+    chunk_size: int = 200
+
+    @classmethod
+    def from_raw(cls, raw: Any) -> "QueryRelationshipFilter":
+        if not isinstance(raw, dict):
+            raise ValueError("Relationship filter configuration must be a mapping")
+
+        try:
+            source_query = raw["source_query"]
+            source_field = raw["source_field"]
+            target_field = raw["target_field"]
+        except KeyError as exc:  # pragma: no cover - validated at runtime
+            raise ValueError(
+                "Relationship filter requires source_query, source_field, and target_field"
+            ) from exc
+
+        chunk_size_raw = raw.get("chunk_size")
+        chunk_size = int(chunk_size_raw) if chunk_size_raw is not None else 200
+
+        return cls(
+            source_query=source_query,
+            source_field=source_field,
+            target_field=target_field,
+            chunk_size=chunk_size,
+        )
+
+
+@dataclass
 class QueryConfig:
     name: str
     soql: str
     where: Optional[str] = None
     output_file: Optional[str] = None
     incremental: Optional[QueryIncrementalConfig] = None
+    relationship_filters: List[QueryRelationshipFilter] = field(default_factory=list)
 
-    def build_query(self) -> str:
+    def build_query(self, additional_conditions: Iterable[str] = ()) -> str:
+        conditions = []
         if self.where:
-            if " where " in self.soql.lower():
-                return f"{self.soql} AND {self.where}"
-            return f"{self.soql} WHERE {self.where}"
-        return self.soql
+            conditions.append(self.where.strip())
+        conditions.extend(cond.strip() for cond in additional_conditions if cond and cond.strip())
+
+        if not conditions:
+            return self.soql.strip()
+
+        base_soql = self.soql.strip()
+        lowered = base_soql.lower()
+        if " where " in lowered or lowered.endswith(" where") or "\nwhere " in lowered:
+            return f"{base_soql} AND {' AND '.join(conditions)}"
+        return f"{base_soql} WHERE {' AND '.join(conditions)}"
 
 
 @dataclass
@@ -206,12 +247,20 @@ class AppConfig:
                 else None
             )
 
+            relationship_filters_raw = query_raw.get("relationship_filters", [])
+            relationship_filters: List[QueryRelationshipFilter] = []
+            for filter_raw in relationship_filters_raw:
+                relationship_filters.append(
+                    QueryRelationshipFilter.from_raw(filter_raw)
+                )
+
             query = QueryConfig(
                 name=query_raw["name"],
                 soql=query_raw["soql"],
                 where=query_raw.get("where"),
                 output_file=query_raw.get("output_file"),
                 incremental=incremental_override,
+                relationship_filters=relationship_filters,
             )
             queries.append(query)
 
@@ -264,6 +313,7 @@ __all__ = [
     "IncrementalConfig",
     "QueryIncrementalConfig",
     "QueryConfig",
+    "QueryRelationshipFilter",
     "S3Info",
     "SalesforceAuth",
 ]
