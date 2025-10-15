@@ -65,6 +65,7 @@ python main.py --config config.yaml
   - サンプル設定では `Reservations_*` と `Sales_*` の元データに関連オブジェクト（`Contact`、`Plan`、`AccountAcount`、`AccountMaster`）
     を順番に結合し、最終的な CSV を 7 ファイルにまとめています。
 
+
 ## ファイル出力と S3 アップロード
 
 各 SOQL の結果を CSV に出力し、`s3_info.file_name` のプレフィックスと組み合わせて S3 にアップロードします。アップロード成功後に `archive_directory` が設定されている場合はそのディレクトリへファイルを移動します。

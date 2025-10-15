@@ -85,6 +85,7 @@ class SalesforceExporter:
             return pd.DataFrame()
 
         combined = pd.concat(dataframes, ignore_index=True)
+        
         if query_config.write_output:
             self._write_output(query_config.name, query_config.output_file, combined)
         else:
@@ -128,6 +129,7 @@ class SalesforceExporter:
         )
         return df
 
+      
     def _build_relationship_batches(
         self,
         query_config: QueryConfig,
@@ -248,6 +250,7 @@ class SalesforceExporter:
     def _write_output(
         self, name: str, output_file: Optional[str], df: pd.DataFrame
     ) -> None:
+
         timestamp = datetime.now(self.config.timezone).strftime("%Y%m%d%H%M%S")
         output_name = output_file or name
         local_filename = f"{output_name}_{timestamp}.csv"

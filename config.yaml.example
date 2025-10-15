@@ -211,7 +211,7 @@ queries:
     incremental: false
     output_file: plan
     write_output: false
-
+    
   - name: TypeOfRooms
     soql: |
       SELECT Id,

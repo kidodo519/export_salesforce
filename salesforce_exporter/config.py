@@ -212,6 +212,7 @@ class QueryConfig:
     incremental: Optional[QueryIncrementalConfig] = None
     relationship_filters: List[QueryRelationshipFilter] = field(default_factory=list)
     write_output: bool = True
+    
 
     def build_query(self, additional_conditions: Iterable[str] = ()) -> str:
         conditions = []
@@ -318,6 +319,7 @@ class AppConfig:
                     QueryRelationshipFilter.from_raw(filter_raw)
                 )
 
+
             write_output_raw = query_raw.get("write_output", True)
             if isinstance(write_output_raw, bool):
                 write_output = write_output_raw
@@ -339,6 +341,7 @@ class AppConfig:
         combined_outputs: List[CombinedOutputConfig] = []
         for combined_raw in combined_outputs_raw:
             combined_outputs.append(CombinedOutputConfig.from_raw(combined_raw))
+
 
         for query in queries:
             if query.where is not None:
