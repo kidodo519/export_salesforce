@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import yaml
 
@@ -142,6 +142,68 @@ class QueryRelationshipFilter:
 
 
 @dataclass
+class QueryJoinConfig:
+    source_query: str
+    left_on: Tuple[str, ...]
+    right_on: Tuple[str, ...]
+    how: str = "left"
+    suffixes: Optional[Tuple[str, str]] = None
+
+    @staticmethod
+    def _normalize_keys(value: Any, *, name: str) -> Tuple[str, ...]:
+        if isinstance(value, str):
+            return (value,)
+        if isinstance(value, Sequence):
+            normalized: List[str] = []
+            for item in value:
+                if not isinstance(item, str):
+                    raise ValueError(f"{name} entries must be strings")
+                normalized.append(item)
+            if not normalized:
+                raise ValueError(f"{name} must contain at least one field")
+            return tuple(normalized)
+        raise ValueError(f"{name} must be a string or list of strings")
+
+    @classmethod
+    def from_raw(cls, raw: Any) -> "QueryJoinConfig":
+        if not isinstance(raw, dict):
+            raise ValueError("Join configuration must be a mapping")
+
+        try:
+            source_query = raw["source_query"]
+            left_on_raw = raw["left_on"]
+            right_on_raw = raw["right_on"]
+        except KeyError as exc:  # pragma: no cover - validated at runtime
+            raise ValueError(
+                "Join configuration requires source_query, left_on, and right_on"
+            ) from exc
+
+        left_on = cls._normalize_keys(left_on_raw, name="left_on")
+        right_on = cls._normalize_keys(right_on_raw, name="right_on")
+
+        how = raw.get("how", "left")
+        suffixes_raw = raw.get("suffixes")
+        suffixes: Optional[Tuple[str, str]] = None
+        if suffixes_raw is not None:
+            if (
+                isinstance(suffixes_raw, Sequence)
+                and len(suffixes_raw) == 2
+                and all(isinstance(item, str) for item in suffixes_raw)
+            ):
+                suffixes = (suffixes_raw[0], suffixes_raw[1])
+            else:
+                raise ValueError("suffixes must be a list of two strings")
+
+        return cls(
+            source_query=source_query,
+            left_on=left_on,
+            right_on=right_on,
+            how=how,
+            suffixes=suffixes,
+        )
+
+
+@dataclass
 class QueryConfig:
     name: str
     soql: str
@@ -149,6 +211,8 @@ class QueryConfig:
     output_file: Optional[str] = None
     incremental: Optional[QueryIncrementalConfig] = None
     relationship_filters: List[QueryRelationshipFilter] = field(default_factory=list)
+    write_output: bool = True
+    
 
     def build_query(self, additional_conditions: Iterable[str] = ()) -> str:
         conditions = []
@@ -182,6 +246,7 @@ class AppConfig:
     queries: List[QueryConfig]
     timezone: ZoneInfo
     incremental: Optional[IncrementalConfig] = None
+    combined_outputs: List["CombinedOutputConfig"] = field(default_factory=list)
 
     @classmethod
     def load(cls, path: Path) -> "AppConfig":
@@ -254,6 +319,13 @@ class AppConfig:
                     QueryRelationshipFilter.from_raw(filter_raw)
                 )
 
+
+            write_output_raw = query_raw.get("write_output", True)
+            if isinstance(write_output_raw, bool):
+                write_output = write_output_raw
+            else:
+                write_output = bool(write_output_raw)
+
             query = QueryConfig(
                 name=query_raw["name"],
                 soql=query_raw["soql"],
@@ -261,8 +333,15 @@ class AppConfig:
                 output_file=query_raw.get("output_file"),
                 incremental=incremental_override,
                 relationship_filters=relationship_filters,
+                write_output=write_output,
             )
             queries.append(query)
+
+        combined_outputs_raw = raw_config.get("combined_outputs", [])
+        combined_outputs: List[CombinedOutputConfig] = []
+        for combined_raw in combined_outputs_raw:
+            combined_outputs.append(CombinedOutputConfig.from_raw(combined_raw))
+
 
         for query in queries:
             if query.where is not None:
@@ -304,6 +383,38 @@ class AppConfig:
             queries=queries,
             timezone=timezone,
             incremental=incremental,
+            combined_outputs=combined_outputs,
+        )
+
+
+@dataclass
+class CombinedOutputConfig:
+    name: str
+    base_query: str
+    output_file: Optional[str] = None
+    joins: List[QueryJoinConfig] = field(default_factory=list)
+
+    @classmethod
+    def from_raw(cls, raw: Any) -> "CombinedOutputConfig":
+        if not isinstance(raw, dict):
+            raise ValueError("Combined output configuration must be a mapping")
+
+        try:
+            name = raw["name"]
+            base_query = raw["base_query"]
+        except KeyError as exc:  # pragma: no cover - validated at runtime
+            raise ValueError("Combined output requires name and base_query") from exc
+
+        joins_raw = raw.get("joins", [])
+        joins: List[QueryJoinConfig] = []
+        for join_raw in joins_raw:
+            joins.append(QueryJoinConfig.from_raw(join_raw))
+
+        return cls(
+            name=name,
+            base_query=base_query,
+            output_file=raw.get("output_file"),
+            joins=joins,
         )
 
 
@@ -313,8 +424,10 @@ __all__ = [
     "IncrementalConfig",
     "QueryIncrementalConfig",
     "QueryConfig",
+    "QueryJoinConfig",
     "QueryRelationshipFilter",
     "S3Info",
     "SalesforceAuth",
+    "CombinedOutputConfig",
 ]
 

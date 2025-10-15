@@ -23,7 +23,7 @@ timezone: Asia/Tokyo
 queries:
   - name: Reservations_history
     soql: |
-      SELECT Id, 
+      SELECT Id,
       ps__No__c,
       ps__EntryTime__c,
       ps__ReservedDate__c,
@@ -40,10 +40,11 @@ queries:
       FROM ps__Lead__c
     where: "DAY_ONLY(ps__EntryTime__c) = N_DAYS_AGO:2"
     output_file: reservations_history
+    write_output: false
 
   - name: Reservations_onhand
     soql: |
-      SELECT Id, 
+      SELECT Id,
       ps__No__c,
       ps__EntryTime__c,
       ps__ReservedDate__c,
@@ -62,6 +63,7 @@ queries:
       DAY_ONLY(ps__EntryTime__c) >= N_DAYS_AGO:1
       AND DAY_ONLY(ps__EntryTime__c) <= NEXT_N_DAYS:363
     output_file: reservations_onhand
+    write_output: false
 
   - name: Contact_history
     soql: |
@@ -79,6 +81,7 @@ queries:
         source_field: ps__Relcontact__c
         target_field: Id
     output_file: contacts_history
+    write_output: false
 
   - name: Contact_onhand
     soql: |
@@ -96,6 +99,7 @@ queries:
         source_field: ps__Relcontact__c
         target_field: Id
     output_file: contacts_onhand
+    write_output: false
 
   - name: AccountAcount_history
     soql: |
@@ -108,6 +112,7 @@ queries:
         source_field: Id
         target_field: ps__Relreserve__c
     output_file: accountacount_history
+    write_output: false
 
   - name: AccountAcount_onhand
     soql: |
@@ -120,6 +125,7 @@ queries:
         source_field: Id
         target_field: ps__Relreserve__c
     output_file: accountacount_onhand
+    write_output: false
 
   - name: Sales_history
     soql: |
@@ -138,6 +144,7 @@ queries:
         source_field: Id
         target_field: ps__Field1__c
     output_file: sales_history
+    write_output: false
 
   - name: Sales_onhand
     soql: |
@@ -156,9 +163,8 @@ queries:
         source_field: Id
         target_field: ps__Field1__c
     output_file: sales_onhand
+    write_output: false
 
-
-  
   - name: Room_history
     soql: |
       SELECT Id,
@@ -195,6 +201,7 @@ queries:
       FROM ps__AccountMaster__c
     incremental: false
     output_file: accountmaster
+    write_output: false
 
   - name: Plan
     soql: |
@@ -203,7 +210,8 @@ queries:
       FROM ps__Plan__c
     incremental: false
     output_file: plan
-
+    write_output: false
+    
   - name: TypeOfRooms
     soql: |
       SELECT Id,
@@ -212,3 +220,56 @@ queries:
       FROM ps__TypeOfRooms__c
     incremental: false
     output_file: roomtype
+
+combined_outputs:
+  - name: Reservations_history_combined
+    base_query: Reservations_history
+    output_file: reservations_history
+    joins:
+      - source_query: Contact_history
+        left_on: ps__Relcontact__c
+        right_on: Id
+        how: left
+      - source_query: Plan
+        left_on: ps__Field310__c
+        right_on: Id
+        how: left
+
+  - name: Reservations_onhand_combined
+    base_query: Reservations_onhand
+    output_file: reservations_onhand
+    joins:
+      - source_query: Contact_onhand
+        left_on: ps__Relcontact__c
+        right_on: Id
+        how: left
+      - source_query: Plan
+        left_on: ps__Field310__c
+        right_on: Id
+        how: left
+
+  - name: Sales_history_combined
+    base_query: Sales_history
+    output_file: sales_history
+    joins:
+      - source_query: AccountAcount_history
+        left_on: ps__Field1__c
+        right_on: Id
+        how: left
+      - source_query: AccountMaster
+        left_on: ps__Field7__c
+        right_on: Id
+        how: left
+
+  - name: Sales_onhand_combined
+    base_query: Sales_onhand
+    output_file: sales_onhand
+    joins:
+      - source_query: AccountAcount_onhand
+        left_on: ps__Field1__c
+        right_on: Id
+        how: left
+      - source_query: AccountMaster
+        left_on: ps__Field7__c
+        right_on: Id
+        how: left

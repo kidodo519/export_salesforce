@@ -11,7 +11,7 @@ from typing import Dict, Iterable, List, Optional
 import pandas as pd
 from simple_salesforce import Salesforce, SalesforceLogin
 
-from .config import AppConfig, QueryConfig
+from .config import AppConfig, CombinedOutputConfig, QueryConfig, QueryJoinConfig
 from .s3_uploader import upload_to_s3
 
 LOGGER = logging.getLogger(__name__)
@@ -47,6 +47,10 @@ class SalesforceExporter:
             df = self._export_query(query_config, results_cache)
             results_cache[query_config.name] = df
 
+        for combined_config in self.config.combined_outputs:
+            df = self._build_combined_output(combined_config, results_cache)
+            results_cache[combined_config.name] = df
+
     def _export_query(
         self,
         query_config: QueryConfig,
@@ -81,9 +85,51 @@ class SalesforceExporter:
             return pd.DataFrame()
 
         combined = pd.concat(dataframes, ignore_index=True)
-        self._write_output(query_config, combined)
+        
+        if query_config.write_output:
+            self._write_output(query_config.name, query_config.output_file, combined)
+        else:
+            LOGGER.info("Skipping write for %s because write_output is false", query_config.name)
         return combined
 
+    def _build_combined_output(
+        self,
+        combined_config: CombinedOutputConfig,
+        results_cache: Dict[str, pd.DataFrame],
+    ) -> pd.DataFrame:
+        base_df = results_cache.get(combined_config.base_query)
+        if base_df is None:
+            raise ValueError(
+                f"Combined output '{combined_config.name}' depends on "
+                f"'{combined_config.base_query}' which has not been executed"
+            )
+
+        df = base_df.copy()
+        if combined_config.joins:
+            df = self._apply_joins(
+                df,
+                combined_config.joins,
+                results_cache,
+                combined_config.name,
+            )
+
+        if df.empty:
+            LOGGER.warning(
+                "Combined output %s produced no rows", combined_config.name
+            )
+        else:
+            LOGGER.info(
+                "Built combined output %s with %d rows",
+                combined_config.name,
+                len(df.index),
+            )
+
+        self._write_output(
+            combined_config.name, combined_config.output_file, df
+        )
+        return df
+
+      
     def _build_relationship_batches(
         self,
         query_config: QueryConfig,
@@ -163,9 +209,50 @@ class SalesforceExporter:
 
         return pd.DataFrame(records)
 
-    def _write_output(self, query_config: QueryConfig, df: pd.DataFrame) -> None:
+    def _apply_joins(
+        self,
+        df: pd.DataFrame,
+        joins: List[QueryJoinConfig],
+        results_cache: Dict[str, pd.DataFrame],
+        owner_name: str,
+    ) -> pd.DataFrame:
+        result = df
+        for join in joins:
+            other = results_cache.get(join.source_query)
+            if other is None:
+                raise ValueError(
+                    f"{owner_name} requires '{join.source_query}' before joining"
+                )
+
+            other_df = other.copy()
+            left_on: Iterable[str] | str
+            right_on: Iterable[str] | str
+            if len(join.left_on) == 1:
+                left_on = join.left_on[0]
+            else:
+                left_on = list(join.left_on)
+            if len(join.right_on) == 1:
+                right_on = join.right_on[0]
+            else:
+                right_on = list(join.right_on)
+
+            suffixes = join.suffixes or ("", f"_{join.source_query}")
+            result = result.merge(
+                other_df,
+                how=join.how,
+                left_on=left_on,
+                right_on=right_on,
+                suffixes=suffixes,
+            )
+
+        return result
+
+    def _write_output(
+        self, name: str, output_file: Optional[str], df: pd.DataFrame
+    ) -> None:
+
         timestamp = datetime.now(self.config.timezone).strftime("%Y%m%d%H%M%S")
-        output_name = query_config.output_file or query_config.name
+        output_name = output_file or name
         local_filename = f"{output_name}_{timestamp}.csv"
         local_path = self.config.csv.output_directory / local_filename
         LOGGER.info("Writing %d rows to %s", len(df.index), local_path)
