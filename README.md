@@ -23,7 +23,7 @@ Salesforce から複数のオブジェクトを取得し、CSV 形式に変換�
 
 ## 使い方
 
-1. `config.yaml.example` をコピーして `config.yaml` を作成します。
+1. `config.yaml.example` をコピーして `config.yaml` を作成します（`config.yaml` が存在しない場合は実行時に `config.yaml.example` を自動で読み込みます）。
 2. S3・Salesforce の認証情報、出力先ディレクトリ、SOQL を設定します。
 3. 実行します。
 
