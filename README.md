@@ -23,7 +23,7 @@ Salesforce から複数のオブジェクトを取得し、CSV 形式に変換�
 
 ## 使い方
 
-1. `config.yaml.example` をコピーして `config.yaml` を作成します（`config.yaml` が存在しない場合は実行時に `config.yaml.example` を自動で読み込みます）。
+1. `config.yaml.example` をコピーして `config.yaml` を作成します。
 2. S3・Salesforce の認証情報、出力先ディレクトリ、SOQL を設定します。
 3. 実行します。
 
@@ -62,7 +62,6 @@ python main.py --config config.yaml
   - `name` は結合結果の識別子、`base_query` は結合の起点となるクエリ名です。
   - `joins` で複数の結合定義を並べると、順番に `pandas.merge` を実行して列を取り込みます。`left_on`／`right_on` で結合キー（単一または配列）を指定し、`suffixes` で重複カラム名に付くサフィックスを制御できます（省略時は `("", "_<source_query>")`）。
   - `output_file` を指定すると生成される CSV のファイル名になります。省略時は `name` が使用されます。
-  - サンプルでは `Reservations_history` を `ps__Lead__c_history` に `Contact_history` と `ps__Plan__c_all` を結合して作成し、元クエリの `write_output` を `false` に設定することで最終的な出力ファイル数を 7 件に抑えています。
 
 ## ファイル出力と S3 アップロード
 

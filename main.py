@@ -10,9 +10,6 @@ from salesforce_exporter.config import AppConfig
 from salesforce_exporter.exporter import SalesforceExporter
 
 
-LOGGER = logging.getLogger(__name__)
-
-
 def setup_logging(verbose: bool = False) -> None:
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(level=level, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -34,28 +31,12 @@ def main() -> None:
     args = parse_args()
     setup_logging(args.verbose)
 
-    config_path = resolve_config_path(args.config)
-    config = AppConfig.load(config_path)
+    if not args.config.exists():
+        raise FileNotFoundError(f"Configuration file '{args.config}' was not found")
+
+    config = AppConfig.load(args.config)
     exporter = SalesforceExporter(config)
     exporter.run()
-
-
-def resolve_config_path(path: Path) -> Path:
-    """Resolve the configuration path, falling back to ``*.example`` if present."""
-
-    if path.exists():
-        return path
-
-    example_path = path.with_name(f"{path.name}.example")
-    if example_path.exists():
-        LOGGER.info(
-            "Configuration file %s not found; using example file %s", path, example_path
-        )
-        return example_path
-
-    raise FileNotFoundError(
-        f"Configuration file '{path}' was not found and no example file is available"
-    )
 
 
 if __name__ == "__main__":
