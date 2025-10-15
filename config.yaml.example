@@ -21,127 +21,194 @@ salesforce:
 timezone: Asia/Tokyo
 
 queries:
-  - name: ps__Lead__c_history
+  - name: Reservations_history
     soql: |
-      SELECT Id, Name, ps__EntryTime__c, ps__Relcontact__c, ps__Relreserve__c, ps__Rroom__c
+      SELECT Id, 
+      ps__No__c,
+      ps__EntryTime__c,
+      ps__ReservedDate__c,
+      ps__ReservedStatus__c,
+      ps__PmsEmailDelDateTime__c,
+      ps__StayPersons__c,
+      ps__ChildFA__c,
+      ps__email__c,
+      ps__Field2__c,
+      LastModifiedDate,
+      ps__Field310__c,
+      ps__Relcontact__c,
+      ps__Rroom__c
       FROM ps__Lead__c
     where: "DAY_ONLY(ps__EntryTime__c) = N_DAYS_AGO:2"
-    output_file: ps__Lead__c_history
+    output_file: reservations_history
 
-  - name: ps__Lead__c_onhand
+  - name: Reservations_onhand
     soql: |
-      SELECT Id, Name, ps__EntryTime__c, ps__Relcontact__c, ps__Relreserve__c, ps__Rroom__c
+      SELECT Id, 
+      ps__No__c,
+      ps__EntryTime__c,
+      ps__ReservedDate__c,
+      ps__ReservedStatus__c,
+      ps__PmsEmailDelDateTime__c,
+      ps__StayPersons__c,
+      ps__ChildFA__c,
+      ps__email__c,
+      ps__Field2__c,
+      LastModifiedDate,
+      ps__Field310__c,
+      ps__Relcontact__c,
+      ps__Rroom__c
       FROM ps__Lead__c
     where: |
       DAY_ONLY(ps__EntryTime__c) >= N_DAYS_AGO:1
       AND DAY_ONLY(ps__EntryTime__c) <= NEXT_N_DAYS:363
-    output_file: ps__Lead__c_onhand
+    output_file: reservations_onhand
 
   - name: Contact_history
     soql: |
-      SELECT Id, LastName, FirstName, Email
+      SELECT Id,
+      MailingAddress,
+      Field6__c,
+      Name,
+      Phone,
+      Email,
+      HasOptedOutOfEmail
       FROM Contact
     incremental: false
     relationship_filters:
-      - source_query: ps__Lead__c_history
+      - source_query: Reservations_history
         source_field: ps__Relcontact__c
         target_field: Id
-    output_file: Contact_history
+    output_file: contacts_history
 
   - name: Contact_onhand
     soql: |
-      SELECT Id, LastName, FirstName, Email
+      SELECT Id,
+      MailingAddress,
+      Field6__c,
+      Name,
+      Phone,
+      Email,
+      HasOptedOutOfEmail
       FROM Contact
     incremental: false
     relationship_filters:
-      - source_query: ps__Lead__c_onhand
+      - source_query: Reservations_onhand
         source_field: ps__Relcontact__c
         target_field: Id
-    output_file: Contact_onhand
+    output_file: contacts_onhand
 
-  - name: ps_AccountAcount__c_history
+  - name: AccountAcount_history
     soql: |
-      SELECT Id, Name, ps__Relreserve__c, ps__Field1__c
-      FROM ps_AccountAcount__c
+      SELECT Id,
+      ps__Relreserve__c
+      FROM ps__AccountAcount__c
     incremental: false
     relationship_filters:
-      - source_query: ps__Lead__c_history
+      - source_query: Reservations_history
         source_field: Id
         target_field: ps__Relreserve__c
-    output_file: ps_AccountAcount__c_history
+    output_file: accountacount_history
 
-  - name: ps_AccountAcount__c_onhand
+  - name: AccountAcount_onhand
     soql: |
-      SELECT Id, Name, ps__Relreserve__c, ps__Field1__c
-      FROM ps_AccountAcount__c
+      SELECT Id,
+      ps__Relreserve__c
+      FROM ps__AccountAcount__c
     incremental: false
     relationship_filters:
-      - source_query: ps__Lead__c_onhand
+      - source_query: Reservations_onhand
         source_field: Id
         target_field: ps__Relreserve__c
-    output_file: ps_AccountAcount__c_onhand
+    output_file: accountacount_onhand
 
-  - name: ps__Tran1__c_history
+  - name: Sales_history
     soql: |
-      SELECT Id, Name, ps__Field1__c
+      SELECT Id,
+      ps__Field5__c,
+      ps__Field23__c,
+      ps__TaxRate__c,
+      ps__Field21__c,
+      LastModifiedDate,
+      ps__Field1__c,
+      ps__Field7__c
       FROM ps__Tran1__c
     incremental: false
     relationship_filters:
-      - source_query: ps_AccountAcount__c_history
+      - source_query: AccountAcount_history
         source_field: Id
         target_field: ps__Field1__c
-    output_file: ps__Tran1__c_history
+    output_file: sales_history
 
-  - name: ps__Tran1__c_onhand
+  - name: Sales_onhand
     soql: |
-      SELECT Id, Name, ps__Field1__c
+      SELECT Id,
+      ps__Field5__c,
+      ps__Field23__c,
+      ps__TaxRate__c,
+      ps__Field21__c,
+      LastModifiedDate,
+      ps__Field1__c,
+      ps__Field7__c
       FROM ps__Tran1__c
     incremental: false
     relationship_filters:
-      - source_query: ps_AccountAcount__c_onhand
+      - source_query: AccountAcount_onhand
         source_field: Id
         target_field: ps__Field1__c
-    output_file: ps__Tran1__c_onhand
+    output_file: sales_onhand
 
-  - name: ps__Room__c_history
+
+  
+  - name: Room_history
     soql: |
-      SELECT Id, Name
+      SELECT Id,
+      Name,
+      ps__UseOfRoom__c,
+      ps__TypeRoomRef__c
       FROM ps__Room__c
     incremental: false
     relationship_filters:
-      - source_query: ps__Lead__c_history
+      - source_query: Reservations_history
         source_field: ps__Rroom__c
         target_field: Id
-    output_file: ps__Room__c_history
+    output_file: rooms_history
 
-  - name: ps__Room__c_onhand
+  - name: Room_onhand
     soql: |
-      SELECT Id, Name
+      SELECT Id,
+      Name,
+      ps__UseOfRoom__c,
+      ps__TypeRoomRef__c
       FROM ps__Room__c
     incremental: false
     relationship_filters:
-      - source_query: ps__Lead__c_onhand
+      - source_query: Reservations_onhand
         source_field: ps__Rroom__c
         target_field: Id
-    output_file: ps__Room__c_onhand
+    output_file: rooms_onhand
 
-  - name: ps__Plan__c_all
+  - name: AccountMaster
     soql: |
-      SELECT Id, Name
-      FROM ps__Plan__c
-    incremental: false
-    output_file: ps__Plan__c
-
-  - name: ps__TypeOfRooms__c_all
-    soql: |
-      SELECT Id, Name
-      FROM ps__TypeOfRooms__c
-    incremental: false
-    output_file: ps__TypeOfRooms__c
-
-  - name: ps__AccountMaster__c_all
-    soql: |
-      SELECT Id, Name
+      SELECT Id,
+      Name,
+      ps__ActionType__c
       FROM ps__AccountMaster__c
     incremental: false
-    output_file: ps__AccountMaster__c
+    output_file: accountmaster
+
+  - name: Plan
+    soql: |
+      SELECT Id,
+      Name
+      FROM ps__Plan__c
+    incremental: false
+    output_file: plan
+
+  - name: TypeOfRooms
+    soql: |
+      SELECT Id,
+      Name,
+      ps__ActionType__c
+      FROM ps__TypeOfRooms__c
+    incremental: false
+    output_file: roomtype
