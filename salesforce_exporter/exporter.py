@@ -85,6 +85,7 @@ class SalesforceExporter:
             return pd.DataFrame()
 
         combined = pd.concat(dataframes, ignore_index=True)
+
         if query_config.write_output:
             self._write_output(query_config.name, query_config.output_file, combined)
         else:
@@ -128,6 +129,7 @@ class SalesforceExporter:
         )
         return df
 
+      
     def _build_relationship_batches(
         self,
         query_config: QueryConfig,
@@ -242,8 +244,8 @@ class SalesforceExporter:
                 right_on=right_on,
                 suffixes=suffixes,
             )
-
         return result
+
 
     def _write_output(
         self, name: str, output_file: Optional[str], df: pd.DataFrame
