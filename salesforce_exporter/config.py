@@ -27,6 +27,7 @@ class S3Info:
 class CsvConfig:
     output_directory: Path
     archive_directory: Optional[Path] = None
+    encoding: str = "utf-8"
 
 
 @dataclass
@@ -212,7 +213,7 @@ class QueryConfig:
     incremental: Optional[QueryIncrementalConfig] = None
     relationship_filters: List[QueryRelationshipFilter] = field(default_factory=list)
     write_output: bool = True
-    
+
 
     def build_query(self, additional_conditions: Iterable[str] = ()) -> str:
         conditions = []
@@ -273,9 +274,12 @@ class AppConfig:
             if not archive_path.is_absolute():
                 archive_path = (base_dir / archive_path).resolve()
 
+        encoding = csv_config_raw.get("encoding", "utf-8")
+
         csv_config = CsvConfig(
             output_directory=output_directory,
             archive_directory=archive_path,
+            encoding=str(encoding),
         )
 
         tz_name = raw_config.get("timezone", "UTC")

@@ -9,6 +9,7 @@ s3_info:
 csv:
   output_directory: data/tmp
   archive_directory: data/archive
+  encoding: shift_jis
 
 salesforce:
   username: your-salesforce-username
@@ -211,7 +212,7 @@ queries:
     incremental: false
     output_file: plan
     write_output: false
-    
+
   - name: TypeOfRooms
     soql: |
       SELECT Id,

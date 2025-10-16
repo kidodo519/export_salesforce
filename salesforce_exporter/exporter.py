@@ -85,7 +85,7 @@ class SalesforceExporter:
             return pd.DataFrame()
 
         combined = pd.concat(dataframes, ignore_index=True)
-        
+
         if query_config.write_output:
             self._write_output(query_config.name, query_config.output_file, combined)
         else:
@@ -244,19 +244,23 @@ class SalesforceExporter:
                 right_on=right_on,
                 suffixes=suffixes,
             )
-
         return result
+
 
     def _write_output(
         self, name: str, output_file: Optional[str], df: pd.DataFrame
     ) -> None:
-
         timestamp = datetime.now(self.config.timezone).strftime("%Y%m%d%H%M%S")
         output_name = output_file or name
         local_filename = f"{output_name}_{timestamp}.csv"
         local_path = self.config.csv.output_directory / local_filename
         LOGGER.info("Writing %d rows to %s", len(df.index), local_path)
-        df.to_csv(local_path, index=False, quoting=csv.QUOTE_NONNUMERIC)
+        df.to_csv(
+            local_path,
+            index=False,
+            quoting=csv.QUOTE_NONNUMERIC,
+            encoding=self.config.csv.encoding,
+        )
 
         remote_filename = f"{self.config.s3.file_name_prefix}{local_filename}"
         uploaded = upload_to_s3(local_path, self.config.s3, remote_filename)

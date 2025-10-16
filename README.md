@@ -43,6 +43,7 @@ python main.py --config config.yaml
 - `csv`
   - `output_directory` は CSV を一時的に保存するローカルディレクトリです。
   - `archive_directory` を指定するとアップロード成功後にファイルを移動します。
+  - `encoding` を指定すると CSV の文字コードを変更できます。既定値は `utf-8` で、`shift_jis` を指定すると SJIS で書き出します。
 - `salesforce` は接続情報です。`domain` に `test` を指定すると Sandbox に接続します。`security_token` を空文字もしくは省略
   すると、IP 制限でトークン不要な環境としてログインします。
 - `timezone` はファイル名や日付条件を計算する際のタイムゾーンです。
