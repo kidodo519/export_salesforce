@@ -31,6 +31,9 @@ def main() -> None:
     args = parse_args()
     setup_logging(args.verbose)
 
+    if not args.config.exists():
+        raise FileNotFoundError(f"Configuration file '{args.config}' was not found")
+
     config = AppConfig.load(args.config)
     exporter = SalesforceExporter(config)
     exporter.run()
