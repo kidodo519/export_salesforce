@@ -9,6 +9,8 @@ from itertools import product
 from typing import Dict, Iterable, List, Optional
 
 import pandas as pd
+import numpy as np
+from pandas.api.types import DatetimeTZDtype
 from simple_salesforce import Salesforce, SalesforceLogin
 
 from .config import AppConfig, CombinedOutputConfig, QueryConfig, QueryJoinConfig
@@ -113,15 +115,18 @@ class SalesforceExporter:
                 combined_config.name,
             )
 
-        if df.empty:
-            LOGGER.warning(
-                "Combined output %s produced no rows", combined_config.name
+        if not df.empty:
+            df = self._apply_custom_transformations(
+                combined_config.name, df, results_cache
             )
-        else:
             LOGGER.info(
                 "Built combined output %s with %d rows",
                 combined_config.name,
                 len(df.index),
+            )
+        else:
+            LOGGER.warning(
+                "Combined output %s produced no rows", combined_config.name
             )
 
         self._write_output(
@@ -245,6 +250,147 @@ class SalesforceExporter:
                 suffixes=suffixes,
             )
         return result
+
+
+    def _apply_custom_transformations(
+        self,
+        name: str,
+        df: pd.DataFrame,
+        results_cache: Dict[str, pd.DataFrame],
+    ) -> pd.DataFrame:
+        """Apply dataset-specific transformations before writing output."""
+
+        if name in {"Sales_history_combined", "Sales_onhand_combined"}:
+            df = self._add_reservation_details(df, results_cache)
+        if name in {"Reservations_history_combined", "Reservations_onhand_combined"}:
+            df = self._add_number_of_use(df, results_cache)
+        return df
+
+    def _add_reservation_details(
+        self, df: pd.DataFrame, results_cache: Dict[str, pd.DataFrame]
+    ) -> pd.DataFrame:
+        """Populate reservation identifiers on sales outputs."""
+
+        if df.empty or "ps__Relreserve__c" not in df.columns:
+            return df
+
+        required_columns = {"Id", "ps__No__c", "ps__EntryTime__c"}
+        reservation_frames: List[pd.DataFrame] = []
+        for key in ("Reservations_history", "Reservations_onhand"):
+            frame = results_cache.get(key)
+            if frame is None or frame.empty:
+                continue
+            if not required_columns.issubset(frame.columns):
+                LOGGER.warning(
+                    "Reservation dataset %s is missing required columns for sales join",
+                    key,
+                )
+                continue
+            reservation_frames.append(frame[list(required_columns)])
+
+        if not reservation_frames:
+            return df
+
+        reservations_df = pd.concat(reservation_frames, ignore_index=True)
+        reservations_df = reservations_df.drop_duplicates(subset=["Id"])
+        reservations_lookup = reservations_df.set_index("Id")
+
+        reservation_ids = df["ps__Relreserve__c"]
+        for column in ("ps__No__c", "ps__EntryTime__c"):
+            if column not in reservations_lookup.columns:
+                continue
+            df[column] = reservation_ids.map(reservations_lookup[column])
+
+        return df
+
+    def _add_number_of_use(
+        self, df: pd.DataFrame, results_cache: Dict[str, pd.DataFrame]
+    ) -> pd.DataFrame:
+        """Add number_of_use column counting prior confirmed stays per contact."""
+
+        if df.empty:
+            return df
+
+        contact_column = "ps__Relcontact__c"
+        entry_column = "ps__EntryTime__c"
+        status_column = "ps__ReservedStatus__c"
+
+        if contact_column not in df.columns or entry_column not in df.columns:
+            return df
+
+        required_columns = {"Id", contact_column, entry_column, status_column}
+        reservation_frames: List[pd.DataFrame] = []
+        for key in ("Reservations_history", "Reservations_onhand"):
+            frame = results_cache.get(key)
+            if frame is None or frame.empty:
+                continue
+            if not required_columns.issubset(frame.columns):
+                LOGGER.warning(
+                    "Reservation dataset %s is missing required columns for number_of_use",
+                    key,
+                )
+                continue
+            reservation_frames.append(frame[list(required_columns)])
+
+        if not reservation_frames:
+            df["number_of_use"] = 0
+            return df
+
+        reservations = pd.concat(reservation_frames, ignore_index=True)
+        reservations = reservations.dropna(subset=[contact_column])
+        reservations = reservations[reservations[status_column] == "確定"].copy()
+        if reservations.empty:
+            df["number_of_use"] = 0
+            return df
+
+        reservations[entry_column] = self._normalize_datetime_series(
+            reservations[entry_column]
+        )
+        reservations = reservations.dropna(subset=[entry_column])
+        if reservations.empty:
+            df["number_of_use"] = 0
+            return df
+
+        now = datetime.now(self.config.timezone).replace(tzinfo=None)
+        relevant = reservations[reservations[entry_column] <= now]
+        if relevant.empty:
+            df["number_of_use"] = 0
+            return df
+
+        relevant = relevant.sort_values([contact_column, entry_column, "Id"])
+        times_by_contact = {
+            contact: group[entry_column].to_numpy()
+            for contact, group in relevant.groupby(contact_column)
+        }
+
+        entry_times = self._normalize_datetime_series(df[entry_column])
+        counts: List[int] = []
+        for contact, entry_time in zip(df[contact_column], entry_times):
+            if pd.isna(contact) or pd.isna(entry_time):
+                counts.append(0)
+                continue
+
+            times = times_by_contact.get(contact)
+            if times is None or times.size == 0:
+                counts.append(0)
+                continue
+
+            if entry_time <= now:
+                index = int(np.searchsorted(times, entry_time, side="left"))
+            else:
+                index = int(np.searchsorted(times, now, side="right"))
+            counts.append(index)
+
+        df["number_of_use"] = counts
+        return df
+
+    def _normalize_datetime_series(self, series: pd.Series) -> pd.Series:
+        """Convert a datetime-like series to naive timestamps in the app timezone."""
+
+        parsed = pd.to_datetime(series, errors="coerce")
+        if isinstance(parsed.dtype, DatetimeTZDtype):
+            parsed = parsed.dt.tz_convert(self.config.timezone).dt.tz_localize(None)
+        return parsed
 
 
     def _write_output(

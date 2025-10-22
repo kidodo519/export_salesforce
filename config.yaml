@@ -267,6 +267,10 @@ combined_outputs:
         left_on: ps__Field1__c
         right_on: Id
         how: left
+      - source_query: Reservations_history
+        left_on: ps__Relreserve__c
+        right_on: Id
+        how: left
       - source_query: AccountMaster
         left_on: ps__Field7__c
         right_on: Id
@@ -278,6 +282,10 @@ combined_outputs:
     joins:
       - source_query: AccountAcount_onhand
         left_on: ps__Field1__c
+        right_on: Id
+        how: left
+      - source_query: Reservations_onhand
+        left_on: ps__Relreserve__c
         right_on: Id
         how: left
       - source_query: AccountMaster
