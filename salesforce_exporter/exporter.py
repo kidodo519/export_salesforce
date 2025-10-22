@@ -352,6 +352,7 @@ class SalesforceExporter:
             return df
 
         now = datetime.now(self.config.timezone).replace(tzinfo=None)
+        now_timestamp = pd.Timestamp(now)
         relevant = reservations[reservations[entry_column] <= now]
         if relevant.empty:
             df["number_of_use"] = 0
@@ -359,7 +360,7 @@ class SalesforceExporter:
 
         relevant = relevant.sort_values([contact_column, entry_column, "Id"])
         times_by_contact = {
-            contact: group[entry_column].to_numpy()
+            contact: pd.Index(group[entry_column].tolist())
             for contact, group in relevant.groupby(contact_column)
         }
 
@@ -371,14 +372,20 @@ class SalesforceExporter:
                 continue
 
             times = times_by_contact.get(contact)
-            if times is None or times.size == 0:
+            if times is None or times.empty:
                 counts.append(0)
                 continue
 
-            if entry_time <= now:
-                index = int(np.searchsorted(times, entry_time, side="left"))
+            if not isinstance(entry_time, pd.Timestamp):
+                entry_time = pd.to_datetime(entry_time, errors="coerce")
+            if pd.isna(entry_time):
+                counts.append(0)
+                continue
+
+            if entry_time <= now_timestamp:
+                index = int(times.searchsorted(entry_time, side="left"))
             else:
-                index = int(np.searchsorted(times, now, side="right"))
+                index = int(times.searchsorted(now_timestamp, side="right"))
             counts.append(index)
 
         df["number_of_use"] = counts
