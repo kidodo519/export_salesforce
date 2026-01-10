@@ -107,12 +107,18 @@ class SalesforceExporter:
             )
 
         df = base_df.copy()
-        if combined_config.joins:
+        if df.empty:
+            LOGGER.warning(
+                "Combined output %s has no base rows; skipping joins",
+                combined_config.name,
+            )
+        elif combined_config.joins:
             df = self._apply_joins(
                 df,
                 combined_config.joins,
                 results_cache,
                 combined_config.name,
+                skip_empty_sources=combined_config.skip_joins_if_sources_empty,
             )
 
         if not df.empty:
@@ -220,6 +226,8 @@ class SalesforceExporter:
         joins: List[QueryJoinConfig],
         results_cache: Dict[str, pd.DataFrame],
         owner_name: str,
+        *,
+        skip_empty_sources: bool = False,
     ) -> pd.DataFrame:
         result = df
         for join in joins:
@@ -230,6 +238,13 @@ class SalesforceExporter:
                 )
 
             other_df = other.copy()
+            if other_df.empty and skip_empty_sources:
+                LOGGER.warning(
+                    "Skipping join for %s because %s has no rows",
+                    owner_name,
+                    join.source_query,
+                )
+                continue
             left_on: Iterable[str] | str
             right_on: Iterable[str] | str
             if len(join.left_on) == 1:
