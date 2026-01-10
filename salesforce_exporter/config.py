@@ -397,6 +397,7 @@ class CombinedOutputConfig:
     base_query: str
     output_file: Optional[str] = None
     joins: List[QueryJoinConfig] = field(default_factory=list)
+    skip_joins_if_sources_empty: bool = False
 
     @classmethod
     def from_raw(cls, raw: Any) -> "CombinedOutputConfig":
@@ -414,11 +415,18 @@ class CombinedOutputConfig:
         for join_raw in joins_raw:
             joins.append(QueryJoinConfig.from_raw(join_raw))
 
+        skip_joins_if_sources_empty_raw = raw.get("skip_joins_if_sources_empty", False)
+        if isinstance(skip_joins_if_sources_empty_raw, bool):
+            skip_joins_if_sources_empty = skip_joins_if_sources_empty_raw
+        else:
+            skip_joins_if_sources_empty = bool(skip_joins_if_sources_empty_raw)
+
         return cls(
             name=name,
             base_query=base_query,
             output_file=raw.get("output_file"),
             joins=joins,
+            skip_joins_if_sources_empty=skip_joins_if_sources_empty,
         )
 
 
@@ -434,4 +442,3 @@ __all__ = [
     "SalesforceAuth",
     "CombinedOutputConfig",
 ]
-

@@ -256,6 +256,8 @@ combined_outputs:
   - name: Reservations_history_combined
     base_query: Reservations_history
     output_file: reservations_history
+    # skip joins when source dataframes are empty (e.g., no history records)
+    skip_joins_if_sources_empty: false
     joins:
       - source_query: Contact_history
         left_on: ps__Relcontact__c
