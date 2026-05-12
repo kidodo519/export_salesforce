@@ -22,7 +22,6 @@ LOGGER = logging.getLogger(__name__)
 class SalesforceExporter:
     """Export data from Salesforce and upload it to S3."""
 
-    
     def __init__(self, config: AppConfig) -> None:
         self.config = config
 
@@ -37,9 +36,15 @@ class SalesforceExporter:
         session_id, instance = SalesforceLogin(**login_kwargs)
         self.sf = Salesforce(instance=instance, session_id=session_id)
 
-
     def run(self) -> None:
-        LOGGER.info("Starting Salesforce export for %d query(ies)", len(self.config.queries))
+        facility_label = (
+            self.config.facility_name or self.config.facility_key or "single config"
+        )
+        LOGGER.info(
+            "Starting Salesforce export for %s with %d query(ies)",
+            facility_label,
+            len(self.config.queries),
+        )
         self.config.csv.output_directory.mkdir(parents=True, exist_ok=True)
         if self.config.csv.archive_directory:
             self.config.csv.archive_directory.mkdir(parents=True, exist_ok=True)
@@ -91,7 +96,9 @@ class SalesforceExporter:
         if query_config.write_output:
             self._write_output(query_config.name, query_config.output_file, combined)
         else:
-            LOGGER.info("Skipping write for %s because write_output is false", query_config.name)
+            LOGGER.info(
+                "Skipping write for %s because write_output is false", query_config.name
+            )
         return combined
 
     def _build_combined_output(
@@ -131,16 +138,11 @@ class SalesforceExporter:
                 len(df.index),
             )
         else:
-            LOGGER.warning(
-                "Combined output %s produced no rows", combined_config.name
-            )
+            LOGGER.warning("Combined output %s produced no rows", combined_config.name)
 
-        self._write_output(
-            combined_config.name, combined_config.output_file, df
-        )
+        self._write_output(combined_config.name, combined_config.output_file, df)
         return df
 
-      
     def _build_relationship_batches(
         self,
         query_config: QueryConfig,
@@ -265,7 +267,6 @@ class SalesforceExporter:
                 suffixes=suffixes,
             )
         return result
-
 
     def _apply_custom_transformations(
         self,
@@ -413,7 +414,6 @@ class SalesforceExporter:
         if isinstance(parsed.dtype, DatetimeTZDtype):
             parsed = parsed.dt.tz_convert(self.config.timezone).dt.tz_localize(None)
         return parsed
-
 
     def _write_output(
         self, name: str, output_file: Optional[str], df: pd.DataFrame

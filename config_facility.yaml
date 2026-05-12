@@ -1,0 +1,11 @@
+# 法人ごとの出力対象を管理します。
+# output: true/t で出力対象、false/f でスキップします。
+config_directory: config
+facilities:
+  - name: あらや滔々庵
+    key: arayatotoan
+    output: true
+
+  - name: 季さら
+    key: kisara
+    output: true

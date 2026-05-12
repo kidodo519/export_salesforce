@@ -52,7 +52,10 @@ class IncrementalConfig:
         if overrides:
             if "window_days" in overrides and overrides["window_days"] is not None:
                 window_days = int(overrides["window_days"])
-            if "end_offset_days" in overrides and overrides["end_offset_days"] is not None:
+            if (
+                "end_offset_days" in overrides
+                and overrides["end_offset_days"] is not None
+            ):
                 end_offset_days = int(overrides["end_offset_days"])
             if "field" in overrides and overrides["field"]:
                 field = overrides["field"]
@@ -88,7 +91,9 @@ class QueryIncrementalConfig:
         if raw is False:
             return cls(disabled=True)
         if not isinstance(raw, dict):
-            raise ValueError("Query incremental configuration must be a mapping or boolean")
+            raise ValueError(
+                "Query incremental configuration must be a mapping or boolean"
+            )
 
         return cls(
             field=raw.get("field"),
@@ -214,12 +219,13 @@ class QueryConfig:
     relationship_filters: List[QueryRelationshipFilter] = field(default_factory=list)
     write_output: bool = True
 
-
     def build_query(self, additional_conditions: Iterable[str] = ()) -> str:
         conditions = []
         if self.where:
             conditions.append(self.where.strip())
-        conditions.extend(cond.strip() for cond in additional_conditions if cond and cond.strip())
+        conditions.extend(
+            cond.strip() for cond in additional_conditions if cond and cond.strip()
+        )
 
         if not conditions:
             return self.soql.strip()
@@ -240,6 +246,97 @@ class SalesforceAuth:
 
 
 @dataclass
+class FacilityConfig:
+    """One facility/corporation entry in config_facility.yaml."""
+
+    name: str
+    key: str
+    config_path: Path
+    output_enabled: bool = True
+
+    @classmethod
+    def from_raw(
+        cls, raw: Any, *, base_dir: Path, config_directory: Path
+    ) -> "FacilityConfig":
+        if not isinstance(raw, dict):
+            raise ValueError("Facility configuration must be a mapping")
+
+        try:
+            name = raw["name"]
+            key = raw["key"]
+        except KeyError as exc:  # pragma: no cover - validated at runtime
+            raise ValueError("Facility configuration requires name and key") from exc
+
+        output_enabled_raw = raw.get("output", raw.get("enabled", True))
+        if isinstance(output_enabled_raw, bool):
+            output_enabled = output_enabled_raw
+        elif isinstance(output_enabled_raw, str):
+            output_enabled = output_enabled_raw.strip().lower() in {
+                "true",
+                "t",
+                "yes",
+                "y",
+                "1",
+                "on",
+            }
+        else:
+            output_enabled = bool(output_enabled_raw)
+
+        config_path_raw = raw.get("config_file")
+        if config_path_raw:
+            config_path = Path(config_path_raw).expanduser()
+            if not config_path.is_absolute():
+                config_path = (base_dir / config_path).resolve()
+        else:
+            config_path = (config_directory / f"{key}.yaml").resolve()
+
+        return cls(
+            name=str(name),
+            key=str(key),
+            config_path=config_path,
+            output_enabled=output_enabled,
+        )
+
+
+@dataclass
+class FacilityExportConfig:
+    """Top-level facility export switchboard loaded from config_facility.yaml."""
+
+    facilities: List[FacilityConfig]
+
+    @classmethod
+    def load(cls, path: Path) -> "FacilityExportConfig":
+        with path.open("r", encoding="utf-8") as fp:
+            raw_config: Dict[str, Any] = yaml.safe_load(fp) or {}
+
+        base_dir = path.parent
+        config_directory_raw = raw_config.get("config_directory", "config")
+        config_directory = Path(config_directory_raw).expanduser()
+        if not config_directory.is_absolute():
+            config_directory = (base_dir / config_directory).resolve()
+
+        facilities_raw = raw_config.get("facilities", [])
+        facilities = [
+            FacilityConfig.from_raw(
+                facility_raw,
+                base_dir=base_dir,
+                config_directory=config_directory,
+            )
+            for facility_raw in facilities_raw
+        ]
+        return cls(facilities=facilities)
+
+    @classmethod
+    def is_facility_config(cls, path: Path) -> bool:
+        with path.open("r", encoding="utf-8") as fp:
+            raw_config: Dict[str, Any] = yaml.safe_load(fp) or {}
+        return "facilities" in raw_config
+
+    def enabled_facilities(self) -> List[FacilityConfig]:
+        return [facility for facility in self.facilities if facility.output_enabled]
+
+
+@dataclass
 class AppConfig:
     s3: S3Info
     csv: CsvConfig
@@ -248,9 +345,17 @@ class AppConfig:
     timezone: ZoneInfo
     incremental: Optional[IncrementalConfig] = None
     combined_outputs: List["CombinedOutputConfig"] = field(default_factory=list)
+    facility_name: Optional[str] = None
+    facility_key: Optional[str] = None
 
     @classmethod
-    def load(cls, path: Path) -> "AppConfig":
+    def load(
+        cls,
+        path: Path,
+        *,
+        facility_name: Optional[str] = None,
+        facility_key: Optional[str] = None,
+    ) -> "AppConfig":
         with path.open("r", encoding="utf-8") as fp:
             raw_config: Dict[str, Any] = yaml.safe_load(fp)
 
@@ -264,7 +369,9 @@ class AppConfig:
         )
 
         csv_config_raw = raw_config.get("csv", {})
-        output_directory = Path(csv_config_raw.get("output_directory", "output")).expanduser()
+        output_directory = Path(
+            csv_config_raw.get("output_directory", "output")
+        ).expanduser()
         if not output_directory.is_absolute():
             output_directory = (base_dir / output_directory).resolve()
         archive_directory = csv_config_raw.get("archive_directory")
@@ -323,7 +430,6 @@ class AppConfig:
                     QueryRelationshipFilter.from_raw(filter_raw)
                 )
 
-
             write_output_raw = query_raw.get("write_output", True)
             if isinstance(write_output_raw, bool):
                 write_output = write_output_raw
@@ -346,7 +452,6 @@ class AppConfig:
         for combined_raw in combined_outputs_raw:
             combined_outputs.append(CombinedOutputConfig.from_raw(combined_raw))
 
-
         for query in queries:
             if query.where is not None:
                 continue
@@ -361,9 +466,7 @@ class AppConfig:
                 )
             elif overrides:
                 missing_keys = {
-                    key
-                    for key in ("field", "where_template")
-                    if not overrides.get(key)
+                    key for key in ("field", "where_template") if not overrides.get(key)
                 }
                 if missing_keys:
                     missing = ", ".join(sorted(missing_keys))
@@ -388,6 +491,8 @@ class AppConfig:
             timezone=timezone,
             incremental=incremental,
             combined_outputs=combined_outputs,
+            facility_name=facility_name,
+            facility_key=facility_key,
         )
 
 
@@ -432,6 +537,8 @@ class CombinedOutputConfig:
 
 __all__ = [
     "AppConfig",
+    "FacilityConfig",
+    "FacilityExportConfig",
     "CsvConfig",
     "IncrementalConfig",
     "QueryIncrementalConfig",
