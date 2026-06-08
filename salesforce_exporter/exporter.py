@@ -247,6 +247,9 @@ class SalesforceExporter:
                     join.source_query,
                 )
                 continue
+            if join.aggregate:
+                other_df = self._aggregate_join_source(other_df, join, owner_name)
+
             left_on: Iterable[str] | str
             right_on: Iterable[str] | str
             if len(join.left_on) == 1:
@@ -266,7 +269,70 @@ class SalesforceExporter:
                 right_on=right_on,
                 suffixes=suffixes,
             )
+            if join.aggregate and join.aggregate.fill_value is not None:
+                for column in join.aggregate.fields:
+                    if column in result.columns:
+                        result[column] = result[column].fillna(
+                            join.aggregate.fill_value
+                        )
         return result
+
+    def _aggregate_join_source(
+        self, other_df: pd.DataFrame, join: QueryJoinConfig, owner_name: str
+    ) -> pd.DataFrame:
+        if not join.aggregate:
+            return other_df
+
+        aggregate = join.aggregate
+        supported_functions = {"sum", "min", "max", "mean", "first", "last", "count"}
+        function = aggregate.function.lower()
+        if function not in supported_functions:
+            supported = ", ".join(sorted(supported_functions))
+            raise ValueError(
+                f"Unsupported aggregate function '{aggregate.function}' for "
+                f"{owner_name} join from {join.source_query}. "
+                f"Supported functions: {supported}"
+            )
+
+        aggregate_columns = (
+            list(aggregate.group_by)
+            + list(aggregate.fields)
+            + list(aggregate.carry_fields)
+        )
+        output_columns = list(dict.fromkeys(aggregate_columns))
+        required_columns = set(output_columns)
+        if other_df.empty:
+            return pd.DataFrame(columns=output_columns)
+        if not required_columns.issubset(other_df.columns):
+            missing_columns = ", ".join(
+                sorted(required_columns - set(other_df.columns))
+            )
+            raise ValueError(
+                f"Join aggregate for {owner_name} from {join.source_query} "
+                f"is missing columns: {missing_columns}"
+            )
+
+        aggregate_df = other_df[output_columns].copy()
+        aggregate_df = aggregate_df.dropna(subset=list(aggregate.group_by))
+        if aggregate_df.empty:
+            return pd.DataFrame(columns=output_columns)
+
+        if function in {"sum", "mean"}:
+            for column in aggregate.fields:
+                aggregate_df[column] = pd.to_numeric(
+                    aggregate_df[column], errors="coerce"
+                ).fillna(0)
+
+        aggregate_functions = {column: function for column in aggregate.fields}
+        aggregate_functions.update(
+            {column: "first" for column in aggregate.carry_fields}
+        )
+
+        return (
+            aggregate_df.groupby(list(aggregate.group_by), dropna=False)
+            .agg(aggregate_functions)
+            .reset_index()
+        )
 
     def _apply_custom_transformations(
         self,

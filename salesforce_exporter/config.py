@@ -148,15 +148,52 @@ class QueryRelationshipFilter:
 
 
 @dataclass
+class QueryJoinAggregateConfig:
+    group_by: Tuple[str, ...]
+    fields: Tuple[str, ...]
+    function: str = "sum"
+    fill_value: Optional[Any] = None
+    carry_fields: Tuple[str, ...] = ()
+
+    @classmethod
+    def from_raw(cls, raw: Any) -> "QueryJoinAggregateConfig":
+        if not isinstance(raw, dict):
+            raise ValueError("Join aggregate configuration must be a mapping")
+
+        try:
+            group_by_raw = raw["group_by"]
+            fields_raw = raw["fields"]
+        except KeyError as exc:  # pragma: no cover - validated at runtime
+            raise ValueError(
+                "Join aggregate configuration requires group_by and fields"
+            ) from exc
+
+        carry_fields_raw = raw.get("carry_fields", [])
+
+        return cls(
+            group_by=QueryJoinConfig._normalize_keys(group_by_raw, name="group_by"),
+            fields=QueryJoinConfig._normalize_keys(fields_raw, name="fields"),
+            function=str(raw.get("function", "sum")),
+            fill_value=raw.get("fill_value"),
+            carry_fields=QueryJoinConfig._normalize_keys(
+                carry_fields_raw, name="carry_fields", allow_empty=True
+            ),
+        )
+
+
+@dataclass
 class QueryJoinConfig:
     source_query: str
     left_on: Tuple[str, ...]
     right_on: Tuple[str, ...]
     how: str = "left"
     suffixes: Optional[Tuple[str, str]] = None
+    aggregate: Optional[QueryJoinAggregateConfig] = None
 
     @staticmethod
-    def _normalize_keys(value: Any, *, name: str) -> Tuple[str, ...]:
+    def _normalize_keys(
+        value: Any, *, name: str, allow_empty: bool = False
+    ) -> Tuple[str, ...]:
         if isinstance(value, str):
             return (value,)
         if isinstance(value, Sequence):
@@ -165,7 +202,7 @@ class QueryJoinConfig:
                 if not isinstance(item, str):
                     raise ValueError(f"{name} entries must be strings")
                 normalized.append(item)
-            if not normalized:
+            if not normalized and not allow_empty:
                 raise ValueError(f"{name} must contain at least one field")
             return tuple(normalized)
         raise ValueError(f"{name} must be a string or list of strings")
@@ -188,6 +225,13 @@ class QueryJoinConfig:
         right_on = cls._normalize_keys(right_on_raw, name="right_on")
 
         how = raw.get("how", "left")
+        aggregate_raw = raw.get("aggregate")
+        aggregate = (
+            QueryJoinAggregateConfig.from_raw(aggregate_raw)
+            if aggregate_raw is not None
+            else None
+        )
+
         suffixes_raw = raw.get("suffixes")
         suffixes: Optional[Tuple[str, str]] = None
         if suffixes_raw is not None:
@@ -206,6 +250,7 @@ class QueryJoinConfig:
             right_on=right_on,
             how=how,
             suffixes=suffixes,
+            aggregate=aggregate,
         )
 
 
@@ -543,6 +588,7 @@ __all__ = [
     "IncrementalConfig",
     "QueryIncrementalConfig",
     "QueryConfig",
+    "QueryJoinAggregateConfig",
     "QueryJoinConfig",
     "QueryRelationshipFilter",
     "S3Info",

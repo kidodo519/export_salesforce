@@ -241,6 +241,29 @@ combined_outputs:
         left_on: Customer__c
         right_on: Id
         how: left
+      - source_query: Rooms_history
+        left_on: Id
+        right_on: Reserve__c
+        how: left
+        aggregate:
+          group_by: Reserve__c
+          fields:
+            - NumberOfWomen__c
+            - NumberOfMen__c
+            - ElementarySchoolStudentsUG__c
+            - ElementarySchoolStudentsLG__c
+            - InfantMealFutonNumber__c
+            - InfantMeaNumber__c
+            - InfantFutonNumber__c
+            - InfantNumber__c
+          function: sum
+          fill_value: 0
+          carry_fields:
+            - PlanMaster__c
+      - source_query: PlanMaster
+        left_on: PlanMaster__c
+        right_on: Id
+        how: left
 
 
   - name: Reservations_onhand_combined
@@ -249,6 +272,29 @@ combined_outputs:
     joins:
       - source_query: Contact_onhand
         left_on: Customer__c
+        right_on: Id
+        how: left
+      - source_query: Rooms_onhand
+        left_on: Id
+        right_on: Reserve__c
+        how: left
+        aggregate:
+          group_by: Reserve__c
+          fields:
+            - NumberOfWomen__c
+            - NumberOfMen__c
+            - ElementarySchoolStudentsUG__c
+            - ElementarySchoolStudentsLG__c
+            - InfantMealFutonNumber__c
+            - InfantMeaNumber__c
+            - InfantFutonNumber__c
+            - InfantNumber__c
+          function: sum
+          fill_value: 0
+          carry_fields:
+            - PlanMaster__c
+      - source_query: PlanMaster
+        left_on: PlanMaster__c
         right_on: Id
         how: left
 
