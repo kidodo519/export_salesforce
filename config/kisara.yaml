@@ -258,6 +258,12 @@ combined_outputs:
             - InfantNumber__c
           function: sum
           fill_value: 0
+          carry_fields:
+            - PlanMaster__c
+      - source_query: PlanMaster
+        left_on: PlanMaster__c
+        right_on: Id
+        how: left
 
 
   - name: Reservations_onhand_combined
@@ -285,6 +291,12 @@ combined_outputs:
             - InfantNumber__c
           function: sum
           fill_value: 0
+          carry_fields:
+            - PlanMaster__c
+      - source_query: PlanMaster
+        left_on: PlanMaster__c
+        right_on: Id
+        how: left
 
 
   - name: Sales_history_combined

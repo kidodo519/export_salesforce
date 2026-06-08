@@ -294,10 +294,15 @@ class SalesforceExporter:
                 f"Supported functions: {supported}"
             )
 
-        aggregate_columns = list(aggregate.group_by) + list(aggregate.fields)
-        required_columns = set(aggregate_columns)
+        aggregate_columns = (
+            list(aggregate.group_by)
+            + list(aggregate.fields)
+            + list(aggregate.carry_fields)
+        )
+        output_columns = list(dict.fromkeys(aggregate_columns))
+        required_columns = set(output_columns)
         if other_df.empty:
-            return pd.DataFrame(columns=aggregate_columns)
+            return pd.DataFrame(columns=output_columns)
         if not required_columns.issubset(other_df.columns):
             missing_columns = ", ".join(
                 sorted(required_columns - set(other_df.columns))
@@ -307,10 +312,10 @@ class SalesforceExporter:
                 f"is missing columns: {missing_columns}"
             )
 
-        aggregate_df = other_df[aggregate_columns].copy()
+        aggregate_df = other_df[output_columns].copy()
         aggregate_df = aggregate_df.dropna(subset=list(aggregate.group_by))
         if aggregate_df.empty:
-            return pd.DataFrame(columns=aggregate_columns)
+            return pd.DataFrame(columns=output_columns)
 
         if function in {"sum", "mean"}:
             for column in aggregate.fields:
@@ -318,11 +323,14 @@ class SalesforceExporter:
                     aggregate_df[column], errors="coerce"
                 ).fillna(0)
 
+        aggregate_functions = {column: function for column in aggregate.fields}
+        aggregate_functions.update(
+            {column: "first" for column in aggregate.carry_fields}
+        )
+
         return (
-            aggregate_df.groupby(list(aggregate.group_by), dropna=False)[
-                list(aggregate.fields)
-            ]
-            .agg(function)
+            aggregate_df.groupby(list(aggregate.group_by), dropna=False)
+            .agg(aggregate_functions)
             .reset_index()
         )
 

@@ -153,6 +153,7 @@ class QueryJoinAggregateConfig:
     fields: Tuple[str, ...]
     function: str = "sum"
     fill_value: Optional[Any] = None
+    carry_fields: Tuple[str, ...] = ()
 
     @classmethod
     def from_raw(cls, raw: Any) -> "QueryJoinAggregateConfig":
@@ -167,11 +168,16 @@ class QueryJoinAggregateConfig:
                 "Join aggregate configuration requires group_by and fields"
             ) from exc
 
+        carry_fields_raw = raw.get("carry_fields", [])
+
         return cls(
             group_by=QueryJoinConfig._normalize_keys(group_by_raw, name="group_by"),
             fields=QueryJoinConfig._normalize_keys(fields_raw, name="fields"),
             function=str(raw.get("function", "sum")),
             fill_value=raw.get("fill_value"),
+            carry_fields=QueryJoinConfig._normalize_keys(
+                carry_fields_raw, name="carry_fields", allow_empty=True
+            ),
         )
 
 
@@ -185,7 +191,9 @@ class QueryJoinConfig:
     aggregate: Optional[QueryJoinAggregateConfig] = None
 
     @staticmethod
-    def _normalize_keys(value: Any, *, name: str) -> Tuple[str, ...]:
+    def _normalize_keys(
+        value: Any, *, name: str, allow_empty: bool = False
+    ) -> Tuple[str, ...]:
         if isinstance(value, str):
             return (value,)
         if isinstance(value, Sequence):
@@ -194,7 +202,7 @@ class QueryJoinConfig:
                 if not isinstance(item, str):
                     raise ValueError(f"{name} entries must be strings")
                 normalized.append(item)
-            if not normalized:
+            if not normalized and not allow_empty:
                 raise ValueError(f"{name} must contain at least one field")
             return tuple(normalized)
         raise ValueError(f"{name} must be a string or list of strings")
