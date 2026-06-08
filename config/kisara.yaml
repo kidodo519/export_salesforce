@@ -1,7 +1,7 @@
 s3_info:
   bucket_name: onsen-jasper-importer-prod-data-kisara
-  access_key_id: 'xxxx'
-  secret_access_key: 'xxxx'
+  access_key_id: 'xxxxxxT'
+  secret_access_key: 'Jxxxxxx'
   file_name: 'pms-reservations/季さら_'
 
 csv:
@@ -10,7 +10,7 @@ csv:
   encoding: utf-8
 
 salesforce:
-  username: 001@kisara.com
+  username: r.uxxx7@force.com
   password: xxxx
   security_token:
   domain: login  # or 'test' for sandbox
@@ -22,56 +22,55 @@ queries:
   - name: Reservations_history
     soql: |
       SELECT Id,
-      ps__No__c,
-      ps__EntryTime__c,
-      ps__ReservedDate__c,
-      ps__ReservedStatus__c,
-      ps__PmsEmailDelDateTime__c,
-      ps__StayPersons__c,
-      ps__ChildFA__c,
-      ps__email__c,
-      ps__Field2__c,
-      LastModifiedDate,
-      ps__Field310__c,
-      ps__Relcontact__c,
-      ps__Rroom__c
-      FROM ps__Lead__c
-    where: "DAY_ONLY(ps__EntryTime__c) = N_DAYS_AGO:2"
+      Name,
+      ExternalKey__c,
+      NameOfFacility__c,
+      FirstDay__c,
+      CreatedDate,
+      Status__c,
+      CancellationDate__c,
+      NumberOfNights__c,
+      PackagePlanName__c,
+      Customer__c,
+      Agent__c,
+      BathingTax__c
+      FROM Reserve__c
+    where: FirstDay__c = N_DAYS_AGO:2
     output_file: reservations_history
     write_output: false
+
 
   - name: Reservations_onhand
     soql: |
       SELECT Id,
-      ps__No__c,
-      ps__EntryTime__c,
-      ps__ReservedDate__c,
-      ps__ReservedStatus__c,
-      ps__PmsEmailDelDateTime__c,
-      ps__StayPersons__c,
-      ps__ChildFA__c,
-      ps__email__c,
-      ps__Field2__c,
-      LastModifiedDate,
-      ps__Field310__c,
-      ps__Relcontact__c,
-      ps__Rroom__c
-      FROM ps__Lead__c
+      Name,
+      ExternalKey__c,
+      NameOfFacility__c,
+      FirstDay__c,
+      CreatedDate,
+      Status__c,
+      CancellationDate__c,
+      NumberOfNights__c,
+      PackagePlanName__c,
+      Customer__c,
+      Agent__c,
+      BathingTax__c
+      FROM Reserve__c
     where: |
-      DAY_ONLY(ps__EntryTime__c) >= N_DAYS_AGO:1
-      AND DAY_ONLY(ps__EntryTime__c) <= NEXT_N_DAYS:363
+      FirstDay__c >= N_DAYS_AGO:1 AND FirstDay__c <= NEXT_N_DAYS:363
     output_file: reservations_onhand
     write_output: false
+
 
   - name: Contact_history
     soql: |
       SELECT Id,
-      MailingState,
+      RepeatCount__c,
+      NAME,
       MailingCity,
       MailingStreet,
-      Field6__c,
-      Name,
-      MobilePhone,
+      MailingState,
+      AgeGroup__c,
       Phone,
       Email,
       HasOptedOutOfEmail
@@ -79,17 +78,21 @@ queries:
     incremental: false
     relationship_filters:
       - source_query: Reservations_history
-        source_field: ps__Relcontact__c
+        source_field: Customer__c
         target_field: Id
     output_file: contacts_history
     write_output: false
 
+
   - name: Contact_onhand
     soql: |
       SELECT Id,
-      MailingAddress,
-      Field6__c,
-      Name,
+      RepeatCount__c,
+      NAME,
+      MailingCity,
+      MailingStreet,
+      MailingState,
+      AgeGroup__c,
       Phone,
       Email,
       HasOptedOutOfEmail
@@ -97,140 +100,137 @@ queries:
     incremental: false
     relationship_filters:
       - source_query: Reservations_onhand
-        source_field: ps__Relcontact__c
+        source_field: Customer__c
         target_field: Id
     output_file: contacts_onhand
     write_output: false
 
-  - name: AccountAcount_history
-    soql: |
-      SELECT Id,
-      ps__Relreserve__c
-      FROM ps__AccountAcount__c
-    incremental: false
-    relationship_filters:
-      - source_query: Reservations_history
-        source_field: Id
-        target_field: ps__Relreserve__c
-    output_file: accountacount_history
-    write_output: false
-
-  - name: AccountAcount_onhand
-    soql: |
-      SELECT Id,
-      ps__Relreserve__c
-      FROM ps__AccountAcount__c
-    incremental: false
-    relationship_filters:
-      - source_query: Reservations_onhand
-        source_field: Id
-        target_field: ps__Relreserve__c
-    output_file: accountacount_onhand
-    write_output: false
 
   - name: Sales_history
     soql: |
       SELECT Id,
-      ps__Field5__c,
-      ps__Field23__c,
-      ps__TaxRate__c,
-      ps__Field21__c,
-      LastModifiedDate,
-      ps__Field1__c,
-      ps__Field7__c
-      FROM ps__Tran1__c
+      Subject__c,
+      Name,
+      RelatedType__c,
+      Amount__c,
+      TaxRate__c,
+      AccomTaxFlag__c,
+      NumberOfCount__c,
+      UnitPrice__c,
+      Reserve__c
+      FROM Billing__c
     incremental: false
     relationship_filters:
-      - source_query: AccountAcount_history
+      - source_query: Reservations_history
         source_field: Id
-        target_field: ps__Field1__c
+        target_field: Reserve__c
     output_file: sales_history
     write_output: false
+
 
   - name: Sales_onhand
     soql: |
       SELECT Id,
-      ps__Field5__c,
-      ps__Field23__c,
-      ps__TaxRate__c,
-      ps__Field21__c,
-      LastModifiedDate,
-      ps__Field1__c,
-      ps__Field7__c
-      FROM ps__Tran1__c
+      Subject__c,
+      Name,
+      RelatedType__c,
+      Amount__c,
+      TaxRate__c,
+      AccomTaxFlag__c,
+      NumberOfCount__c,
+      UnitPrice__c,
+      Reserve__c
+      FROM Billing__c
     incremental: false
     relationship_filters:
-      - source_query: AccountAcount_onhand
+      - source_query: Reservations_onhand
         source_field: Id
-        target_field: ps__Field1__c
+        target_field: Reserve__c
     output_file: sales_onhand
     write_output: false
-  
+
+
   - name: Rooms_history
     soql: |
       SELECT Id,
-      ps__No__c,
-      ps__EntryTime__c,
-      ps__Rroom__c
-      FROM ps__Lead__c
-    where: "DAY_ONLY(ps__EntryTime__c) = N_DAYS_AGO:2"
+      NumberOfWomen__c,
+      NumberOfMen__c,
+      ElementarySchoolStudentsUG__c,
+      ElementarySchoolStudentsLG__c,
+      InfantMealFutonNumber__c,
+      InfantMeaNumber__c,
+      InfantFutonNumber__c,
+      InfantNumber__c,
+      RoomTypeCode__c,
+      RoomTypeName__c,
+      GuestRoom__c,
+      Reserve__c,
+      PlanMaster__c
+      FROM RoomReservation__c
+    incremental: false
+    relationship_filters:
+      - source_query: Reservations_history
+        source_field: Id
+        target_field: Reserve__c
     output_file: rooms_history
     write_output: false
+
 
   - name: Rooms_onhand
     soql: |
       SELECT Id,
-      ps__No__c,
-      ps__EntryTime__c,
-      ps__Rroom__c
-      FROM ps__Lead__c
-    where: |
-      DAY_ONLY(ps__EntryTime__c) >= N_DAYS_AGO:1
-      AND DAY_ONLY(ps__EntryTime__c) <= NEXT_N_DAYS:363
+      NumberOfWomen__c,
+      NumberOfMen__c,
+      ElementarySchoolStudentsUG__c,
+      ElementarySchoolStudentsLG__c,
+      InfantMealFutonNumber__c,
+      InfantMeaNumber__c,
+      InfantFutonNumber__c,
+      InfantNumber__c,
+      RoomTypeCode__c,
+      RoomTypeName__c,
+      GuestRoom__c,
+      Reserve__c,
+      PlanMaster__c
+      FROM RoomReservation__c
+    incremental: false
+    relationship_filters:
+      - source_query: Reservations_onhand
+        source_field: Id
+        target_field: Reserve__c
     output_file: rooms_onhand
     write_output: false
 
-  - name: Rooms
-    soql: |
-      SELECT Id,
-      Name,
-      ps__UseOfRoom__c,
-      ps__TypeRoomRef__c,
-      ps__priority__c,
-      ps__Floor__c
-      FROM ps__Room__c
-    incremental: false
-    output_file: room_type
-    write_output: false
 
-  - name: AccountMaster
-    soql: |
-      SELECT Id,
-      Name,
-      ps__ActionType__c
-      FROM ps__AccountMaster__c
-    incremental: false
-    output_file: accountmaster
-    write_output: false
-
-  - name: Plan
+  - name: FacilityMaster
     soql: |
       SELECT Id,
       Name
-      FROM ps__Plan__c
+      FROM FacilityMaster__c
     incremental: false
-    output_file: plan
+    output_file: master_facility
     write_output: false
-    
-  - name: TypeOfRooms
+
+
+  - name: PlanMaster
     soql: |
       SELECT Id,
-      Name,
-      ps__ActionType__c
-      FROM ps__TypeOfRooms__c
+      Name
+      FROM PlanMaster__c
     incremental: false
-    output_file: roomtype
+    output_file: master_plan
     write_output: false
+
+    
+  - name: RoomMaster
+    soql: |
+      SELECT Id,
+      Name
+      FROM RoomMaster__c
+    incremental: false
+    output_file: master_room_types
+    write_output: false
+
 
 combined_outputs:
   - name: Reservations_history_combined
@@ -238,84 +238,64 @@ combined_outputs:
     output_file: reservations_history
     joins:
       - source_query: Contact_history
-        left_on: ps__Relcontact__c
+        left_on: Customer__c
         right_on: Id
         how: left
-      - source_query: Plan
-        left_on: ps__Field310__c
-        right_on: Id
-        how: left
+
 
   - name: Reservations_onhand_combined
     base_query: Reservations_onhand
     output_file: reservations_onhand
     joins:
       - source_query: Contact_onhand
-        left_on: ps__Relcontact__c
+        left_on: Customer__c
         right_on: Id
         how: left
-      - source_query: Plan
-        left_on: ps__Field310__c
-        right_on: Id
-        how: left
+
 
   - name: Sales_history_combined
     base_query: Sales_history
     output_file: sales_history
     joins:
-      - source_query: AccountAcount_history
-        left_on: ps__Field1__c
-        right_on: Id
-        how: left
       - source_query: Reservations_history
-        left_on: ps__Relreserve__c
+        left_on: Reserve__c
         right_on: Id
         how: left
-      - source_query: AccountMaster
-        left_on: ps__Field7__c
-        right_on: Id
-        how: left
+
 
   - name: Sales_onhand_combined
     base_query: Sales_onhand
     output_file: sales_onhand
     joins:
-      - source_query: AccountAcount_onhand
-        left_on: ps__Field1__c
-        right_on: Id
-        how: left
       - source_query: Reservations_onhand
-        left_on: ps__Relreserve__c
+        left_on: Reserve__c
         right_on: Id
         how: left
-      - source_query: AccountMaster
-        left_on: ps__Field7__c
-        right_on: Id
-        how: left
+
 
   - name: Rooms_history_combined
     base_query: Rooms_history
     output_file: rooms_history
     joins:
-      - source_query: Rooms
-        left_on: ps__Rroom__c
+      - source_query: Reservations_history
+        left_on: Reserve__c
         right_on: Id
         how: left
+      - source_query: PlanMaster
+        left_on: PlanMaster__c
+        right_on: Id
+        how: left
+
 
   - name: Rooms_onhand_combined
     base_query: Rooms_onhand
     output_file: rooms_onhand
     joins:
-      - source_query: Rooms
-        left_on: ps__Rroom__c
+      - source_query: Reservations_onhand
+        left_on: Reserve__c
         right_on: Id
         how: left
-
-  - name: Room_type_combined
-    base_query: Rooms
-    output_file: room_type
-    joins:
-      - source_query: TypeOfRooms
-        left_on: ps__TypeRoomRef__c
+      - source_query: PlanMaster
+        left_on: PlanMaster__c
         right_on: Id
         how: left
