@@ -93,6 +93,7 @@ facilities:
 - `combined_outputs` 配列
   - `name` は結合結果の識別子、`base_query` は結合の起点となるクエリ名です。
   - `joins` で複数の結合定義を並べると、順番に `pandas.merge` を実行して列を取り込みます。`left_on`／`right_on` で結合キー（単一または配列）を指定し、`suffixes` で重複カラム名に付くサフィックスを制御できます（省略時は `("", "_<source_query>")`）。
+  - `joins[].aggregate` を指定すると、結合前に参照先データを `group_by` で集約できます。`fields` に対象カラム、`function` に `sum` / `min` / `max` / `mean` / `first` / `last` / `count`、未結合時に補完したい値がある場合は `fill_value` を指定します。1 対多の参照先を集約してから結合することで、起点データの行数を維持できます。
   - `output_file` を指定すると生成される CSV のファイル名になります。省略時は `name` が使用されます。
   - サンプル設定では `Reservations_*` と `Sales_*` の元データに関連オブジェクト（`Contact`、`Plan`、`AccountAcount`、`AccountMaster`）
     を順番に結合し、最終的な CSV を 7 ファイルにまとめています。
