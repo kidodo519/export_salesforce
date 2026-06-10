@@ -1,11 +1,17 @@
 # 法人ごとの出力対象を管理します。
-# output: true/t で出力対象、false/f でスキップします。
+# output: true/t で処理対象、false/f で法人ごとスキップします。
+# upload_to_s3: true/t でS3アップロード、false/f でアップロードしません。
+# local_csv_output: true/t でローカルCSVを保存、false/f で保存しません。
 config_directory: config
 facilities:
   - name: あらや滔々庵
     key: arayatotoan
     output: true
+    upload_to_s3: true
+    local_csv_output: true
 
   - name: 季さら
     key: kisara
     output: true
+    upload_to_s3: true
+    local_csv_output: true

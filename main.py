@@ -69,6 +69,8 @@ def run_facility_configs(config_path: Path) -> None:
             facility.config_path,
             facility_name=facility.name,
             facility_key=facility.key,
+            upload_to_s3=facility.upload_to_s3,
+            local_csv_output=facility.local_csv_output,
         )
         exporter = SalesforceExporter(app_config)
         exporter.run()

@@ -51,7 +51,7 @@ pyinstaller .\main.py --add-data "config_facility.yaml;." --add-data "config;con
 
 ### 複数法人設定
 
-`config_facility.yaml` は法人別設定ファイルをまとめるスイッチボードです。`key` は `config_directory` 配下の `[key].yaml` と対応し、`output` を `true` / `false`（または `t` / `f`）で切り替えます。
+`config_facility.yaml` は法人別設定ファイルをまとめるスイッチボードです。`key` は `config_directory` 配下の `[key].yaml` と対応します。`output` で法人ごとの処理対象、`upload_to_s3` で S3 アップロード、`local_csv_output` でローカル CSV 保存をそれぞれ `true` / `false`（または `t` / `f`）で切り替えます。
 
 ```yaml
 config_directory: config
@@ -59,12 +59,16 @@ facilities:
   - name: あらや滔々庵
     key: arayatotoan
     output: true
+    upload_to_s3: true
+    local_csv_output: true
   - name: 季さら
     key: kisara
     output: true
+    upload_to_s3: true
+    local_csv_output: true
 ```
 
-上記の場合、`config/arayatotoan.yaml` と `config/kisara.yaml` が参照されます。`output: false` にした法人は実行時にスキップされます。
+上記の場合、`config/arayatotoan.yaml` と `config/kisara.yaml` が参照されます。`output: false` にした法人は実行時にスキップされます。`upload_to_s3: false` の法人は CSV 生成後の S3 アップロードを行いません。`local_csv_output: false` の法人はローカル CSV を保存せず、`upload_to_s3: true` の場合はメモリ上で生成した CSV を直接 S3 にアップロードします。
 
 法人別設定ファイルは YAML 形式です。主要な項目は以下の通りです。
 
@@ -72,9 +76,11 @@ facilities:
   - `bucket_name`、`access_key_id`、`secret_access_key` はアップロード先の S3 情報です。
   - `file_name` は S3 オブジェクトキーのプレフィックスです。CSV ファイル名が連結されます。
 - `csv`
-  - `output_directory` は CSV を一時的に保存するローカルディレクトリです。
-  - `archive_directory` を指定するとアップロード成功後にファイルを移動します。
+  - `output_directory` は `local_csv_output: true` のときに CSV を保存するローカルディレクトリです。
+  - `archive_directory` を指定すると、`local_csv_output: true` かつ `upload_to_s3: true` でアップロード成功後にファイルを移動します。
   - `encoding` を指定すると CSV の文字コードを変更できます。既定値は `utf-8` で、`shift_jis` を指定すると SJIS で書き出します。
+- `output_control`
+  - 法人別 YAML を `--config` で直接実行する場合に、`upload_to_s3` と `local_csv_output` の既定値を設定できます。`config_facility.yaml` 経由で実行する場合は、法人側の `upload_to_s3` / `local_csv_output` が優先されます。
 - `salesforce` は接続情報です。`domain` に `test` を指定すると Sandbox に接続します。`security_token` を空文字もしくは省略
   すると、IP 制限でトークン不要な環境としてログインします。
 - `timezone` はファイル名や日付条件を計算する際のタイムゾーンです。
@@ -101,7 +107,7 @@ facilities:
 
 ## ファイル出力と S3 アップロード
 
-各 SOQL の結果を CSV に出力し、`s3_info.file_name` のプレフィックスと組み合わせて S3 にアップロードします。アップロード成功後に `archive_directory` が設定されている場合はそのディレクトリへファイルを移動します。
+各 SOQL または `combined_outputs` の結果は、法人ごとの `local_csv_output` / `upload_to_s3` に従って処理されます。`local_csv_output: true` の場合は `output_directory` に CSV を保存します。`upload_to_s3: true` の場合は `s3_info.file_name` のプレフィックスと組み合わせて S3 にアップロードします。両方が `true` でアップロードに成功し、`archive_directory` が設定されている場合は、そのディレクトリへファイルを移動します。`local_csv_output: false` かつ `upload_to_s3: true` の場合は、ローカルに CSV を保存せずにメモリ上で生成した CSV を S3 にアップロードします。
 
 ## テスト
 
