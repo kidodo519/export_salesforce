@@ -51,7 +51,7 @@ pyinstaller .\main.py --add-data "config_facility.yaml;." --add-data "config;con
 
 ### 複数法人設定
 
-`config_facility.yaml` は法人別設定ファイルをまとめるスイッチボードです。`key` は `config_directory` 配下の `[key].yaml` と対応します。`output` で法人ごとの処理対象、`upload_to_s3` で S3 アップロード、`local_csv_output` でローカル CSV 保存をそれぞれ `true` / `false`（または `t` / `f`）で切り替えます。
+`config_facility.yaml` は法人別設定ファイルをまとめるスイッチボードです。`key` は `config_directory` 配下の `[key].yaml` と対応します。`output` で法人ごとの処理対象、`upload_to_s3` で S3 アップロード、`local_csv_output` でローカル CSV 保存をそれぞれ YAML の真偽値（`true` / `false`）で切り替えます。
 
 ```yaml
 config_directory: config
