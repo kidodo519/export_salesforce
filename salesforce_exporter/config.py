@@ -15,6 +15,25 @@ except ImportError:  # pragma: no cover - Python < 3.9 not supported here
     from backports.zoneinfo import ZoneInfo  # type: ignore
 
 
+def parse_bool(value: Any, *, default: bool = False) -> bool:
+    """Parse boolean-like YAML values consistently."""
+
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {
+            "true",
+            "t",
+            "yes",
+            "y",
+            "1",
+            "on",
+        }
+    return bool(value)
+
+
 @dataclass
 class S3Info:
     bucket_name: str
@@ -298,6 +317,8 @@ class FacilityConfig:
     key: str
     config_path: Path
     output_enabled: bool = True
+    upload_to_s3: bool = True
+    local_csv_output: bool = True
 
     @classmethod
     def from_raw(
@@ -312,20 +333,11 @@ class FacilityConfig:
         except KeyError as exc:  # pragma: no cover - validated at runtime
             raise ValueError("Facility configuration requires name and key") from exc
 
-        output_enabled_raw = raw.get("output", raw.get("enabled", True))
-        if isinstance(output_enabled_raw, bool):
-            output_enabled = output_enabled_raw
-        elif isinstance(output_enabled_raw, str):
-            output_enabled = output_enabled_raw.strip().lower() in {
-                "true",
-                "t",
-                "yes",
-                "y",
-                "1",
-                "on",
-            }
-        else:
-            output_enabled = bool(output_enabled_raw)
+        output_enabled = parse_bool(
+            raw.get("output", raw.get("enabled", True)), default=True
+        )
+        upload_to_s3 = parse_bool(raw.get("upload_to_s3", True), default=True)
+        local_csv_output = parse_bool(raw.get("local_csv_output", True), default=True)
 
         config_path_raw = raw.get("config_file")
         if config_path_raw:
@@ -340,6 +352,8 @@ class FacilityConfig:
             key=str(key),
             config_path=config_path,
             output_enabled=output_enabled,
+            upload_to_s3=upload_to_s3,
+            local_csv_output=local_csv_output,
         )
 
 
@@ -392,6 +406,8 @@ class AppConfig:
     combined_outputs: List["CombinedOutputConfig"] = field(default_factory=list)
     facility_name: Optional[str] = None
     facility_key: Optional[str] = None
+    upload_to_s3: bool = True
+    local_csv_output: bool = True
 
     @classmethod
     def load(
@@ -400,11 +416,28 @@ class AppConfig:
         *,
         facility_name: Optional[str] = None,
         facility_key: Optional[str] = None,
+        upload_to_s3: Optional[bool] = None,
+        local_csv_output: Optional[bool] = None,
     ) -> "AppConfig":
         with path.open("r", encoding="utf-8") as fp:
             raw_config: Dict[str, Any] = yaml.safe_load(fp)
 
         base_dir = path.parent
+        output_control_raw = raw_config.get("output_control", {}) or {}
+        if not isinstance(output_control_raw, dict):
+            raise ValueError("output_control must be a mapping")
+        upload_to_s3_enabled = (
+            upload_to_s3
+            if upload_to_s3 is not None
+            else parse_bool(output_control_raw.get("upload_to_s3", True), default=True)
+        )
+        local_csv_output_enabled = (
+            local_csv_output
+            if local_csv_output is not None
+            else parse_bool(
+                output_control_raw.get("local_csv_output", True), default=True
+            )
+        )
 
         s3_info = S3Info(
             bucket_name=raw_config["s3_info"]["bucket_name"],
@@ -538,6 +571,8 @@ class AppConfig:
             combined_outputs=combined_outputs,
             facility_name=facility_name,
             facility_key=facility_key,
+            upload_to_s3=upload_to_s3_enabled,
+            local_csv_output=local_csv_output_enabled,
         )
 
 

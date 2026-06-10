@@ -14,7 +14,7 @@ from pandas.api.types import DatetimeTZDtype
 from simple_salesforce import Salesforce, SalesforceLogin
 
 from .config import AppConfig, CombinedOutputConfig, QueryConfig, QueryJoinConfig
-from .s3_uploader import upload_to_s3
+from .s3_uploader import upload_bytes_to_s3, upload_to_s3
 
 LOGGER = logging.getLogger(__name__)
 
@@ -45,9 +45,10 @@ class SalesforceExporter:
             facility_label,
             len(self.config.queries),
         )
-        self.config.csv.output_directory.mkdir(parents=True, exist_ok=True)
-        if self.config.csv.archive_directory:
-            self.config.csv.archive_directory.mkdir(parents=True, exist_ok=True)
+        if self.config.local_csv_output:
+            self.config.csv.output_directory.mkdir(parents=True, exist_ok=True)
+            if self.config.csv.archive_directory and self.config.upload_to_s3:
+                self.config.csv.archive_directory.mkdir(parents=True, exist_ok=True)
 
         results_cache: Dict[str, pd.DataFrame] = {}
         for query_config in self.config.queries:
@@ -484,22 +485,57 @@ class SalesforceExporter:
     def _write_output(
         self, name: str, output_file: Optional[str], df: pd.DataFrame
     ) -> None:
+        if not self.config.local_csv_output and not self.config.upload_to_s3:
+            LOGGER.info(
+                "Skipping output for %s because local_csv_output and upload_to_s3 are false",
+                name,
+            )
+            return
+
         timestamp = datetime.now(self.config.timezone).strftime("%Y%m%d%H%M%S")
         output_name = output_file or name
         local_filename = f"{output_name}_{timestamp}.csv"
-        local_path = self.config.csv.output_directory / local_filename
-        LOGGER.info("Writing %d rows to %s", len(df.index), local_path)
-        df.to_csv(
-            local_path,
-            index=False,
-            quoting=csv.QUOTE_NONNUMERIC,
-            encoding=self.config.csv.encoding,
-        )
-
         remote_filename = f"{self.config.s3.file_name_prefix}{local_filename}"
-        uploaded = upload_to_s3(local_path, self.config.s3, remote_filename)
 
-        if uploaded and self.config.csv.archive_directory:
+        local_path = None
+        if self.config.local_csv_output:
+            local_path = self.config.csv.output_directory / local_filename
+            LOGGER.info("Writing %d rows to %s", len(df.index), local_path)
+            df.to_csv(
+                local_path,
+                index=False,
+                quoting=csv.QUOTE_NONNUMERIC,
+                encoding=self.config.csv.encoding,
+            )
+        else:
+            LOGGER.info(
+                "Skipping local CSV output for %s because local_csv_output is false",
+                name,
+            )
+
+        uploaded = False
+        if self.config.upload_to_s3:
+            if local_path is not None:
+                uploaded = upload_to_s3(local_path, self.config.s3, remote_filename)
+            else:
+                csv_text = df.to_csv(
+                    index=False,
+                    quoting=csv.QUOTE_NONNUMERIC,
+                )
+                uploaded = upload_bytes_to_s3(
+                    csv_text.encode(self.config.csv.encoding),
+                    self.config.s3,
+                    remote_filename,
+                    source_name=local_filename,
+                )
+        else:
+            LOGGER.info("Skipping S3 upload for %s because upload_to_s3 is false", name)
+
+        if (
+            uploaded
+            and local_path is not None
+            and self.config.csv.archive_directory
+        ):
             destination = self.config.csv.archive_directory / local_filename
             LOGGER.info("Moving %s to %s", local_path, destination)
             local_path.replace(destination)

@@ -47,4 +47,30 @@ def upload_to_s3(path: Path, s3_info: S3Info, object_name: Optional[str] = None)
     return True
 
 
-__all__ = ["upload_to_s3"]
+def upload_bytes_to_s3(
+    data: bytes, s3_info: S3Info, object_name: str, *, source_name: Optional[str] = None
+) -> bool:
+    """Upload in-memory bytes to S3 without requiring a local file."""
+
+    source_label = source_name or "in-memory CSV"
+    LOGGER.info(
+        "Uploading %s to s3://%s/%s", source_label, s3_info.bucket_name, object_name
+    )
+
+    s3_client = boto3.client(
+        "s3",
+        aws_access_key_id=s3_info.access_key_id,
+        aws_secret_access_key=s3_info.secret_access_key,
+    )
+
+    try:
+        s3_client.put_object(Bucket=s3_info.bucket_name, Key=object_name, Body=data)
+    except Exception:  # pragma: no cover - network error
+        LOGGER.exception("Failed to upload %s", source_label)
+        return False
+
+    LOGGER.info("Upload succeeded")
+    return True
+
+
+__all__ = ["upload_to_s3", "upload_bytes_to_s3"]

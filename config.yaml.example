@@ -11,6 +11,12 @@ csv:
   archive_directory: data/archive
   encoding: shift_jis
 
+# Optional when running this config directly. When launched through
+# config_facility.yaml, the facility-level values override these.
+output_control:
+  upload_to_s3: true
+  local_csv_output: true
+
 salesforce:
   username: your-salesforce-username
   password: your-salesforce-password
