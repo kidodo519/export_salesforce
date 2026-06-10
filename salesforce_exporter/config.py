@@ -15,25 +15,6 @@ except ImportError:  # pragma: no cover - Python < 3.9 not supported here
     from backports.zoneinfo import ZoneInfo  # type: ignore
 
 
-def parse_bool(value: Any, *, default: bool = False) -> bool:
-    """Parse boolean-like YAML values consistently."""
-
-    if value is None:
-        return default
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, str):
-        return value.strip().lower() in {
-            "true",
-            "t",
-            "yes",
-            "y",
-            "1",
-            "on",
-        }
-    return bool(value)
-
-
 @dataclass
 class S3Info:
     bucket_name: str
@@ -333,11 +314,9 @@ class FacilityConfig:
         except KeyError as exc:  # pragma: no cover - validated at runtime
             raise ValueError("Facility configuration requires name and key") from exc
 
-        output_enabled = parse_bool(
-            raw.get("output", raw.get("enabled", True)), default=True
-        )
-        upload_to_s3 = parse_bool(raw.get("upload_to_s3", True), default=True)
-        local_csv_output = parse_bool(raw.get("local_csv_output", True), default=True)
+        output_enabled = raw.get("output", raw.get("enabled", True))
+        upload_to_s3 = raw.get("upload_to_s3", True)
+        local_csv_output = raw.get("local_csv_output", True)
 
         config_path_raw = raw.get("config_file")
         if config_path_raw:
@@ -429,14 +408,12 @@ class AppConfig:
         upload_to_s3_enabled = (
             upload_to_s3
             if upload_to_s3 is not None
-            else parse_bool(output_control_raw.get("upload_to_s3", True), default=True)
+            else output_control_raw.get("upload_to_s3", True)
         )
         local_csv_output_enabled = (
             local_csv_output
             if local_csv_output is not None
-            else parse_bool(
-                output_control_raw.get("local_csv_output", True), default=True
-            )
+            else output_control_raw.get("local_csv_output", True)
         )
 
         s3_info = S3Info(
@@ -508,12 +485,6 @@ class AppConfig:
                     QueryRelationshipFilter.from_raw(filter_raw)
                 )
 
-            write_output_raw = query_raw.get("write_output", True)
-            if isinstance(write_output_raw, bool):
-                write_output = write_output_raw
-            else:
-                write_output = bool(write_output_raw)
-
             query = QueryConfig(
                 name=query_raw["name"],
                 soql=query_raw["soql"],
@@ -521,7 +492,7 @@ class AppConfig:
                 output_file=query_raw.get("output_file"),
                 incremental=incremental_override,
                 relationship_filters=relationship_filters,
-                write_output=write_output,
+                write_output=query_raw.get("write_output", True),
             )
             queries.append(query)
 
@@ -600,18 +571,12 @@ class CombinedOutputConfig:
         for join_raw in joins_raw:
             joins.append(QueryJoinConfig.from_raw(join_raw))
 
-        skip_joins_if_sources_empty_raw = raw.get("skip_joins_if_sources_empty", False)
-        if isinstance(skip_joins_if_sources_empty_raw, bool):
-            skip_joins_if_sources_empty = skip_joins_if_sources_empty_raw
-        else:
-            skip_joins_if_sources_empty = bool(skip_joins_if_sources_empty_raw)
-
         return cls(
             name=name,
             base_query=base_query,
             output_file=raw.get("output_file"),
             joins=joins,
-            skip_joins_if_sources_empty=skip_joins_if_sources_empty,
+            skip_joins_if_sources_empty=raw.get("skip_joins_if_sources_empty", False),
         )
 
 

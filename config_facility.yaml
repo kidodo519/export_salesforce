@@ -1,7 +1,7 @@
 # 法人ごとの出力対象を管理します。
-# output: true/t で処理対象、false/f で法人ごとスキップします。
-# upload_to_s3: true/t でS3アップロード、false/f でアップロードしません。
-# local_csv_output: true/t でローカルCSVを保存、false/f で保存しません。
+# output: true で処理対象、false で法人ごとスキップします。
+# upload_to_s3: true でS3アップロード、false でアップロードしません。
+# local_csv_output: true でローカルCSVを保存、false で保存しません。
 config_directory: config
 facilities:
   - name: あらや滔々庵
