@@ -168,11 +168,7 @@ queries:
       Reserve__c,
       PlanMaster__c
       FROM RoomReservation__c
-    incremental: false
-    relationship_filters:
-      - source_query: Reservations_history
-        source_field: Id
-        target_field: Reserve__c
+    where: DateOfStay__c = N_DAYS_AGO:2
     output_file: rooms_history
     write_output: false
 
@@ -195,11 +191,8 @@ queries:
       Reserve__c,
       PlanMaster__c
       FROM RoomReservation__c
-    incremental: false
-    relationship_filters:
-      - source_query: Reservations_onhand
-        source_field: Id
-        target_field: Reserve__c
+    where: |
+      DateOfStay__c >= N_DAYS_AGO:1 AND DateOfStay__c <= NEXT_N_DAYS:363
     output_file: rooms_onhand
     write_output: false
 
