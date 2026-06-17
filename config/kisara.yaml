@@ -1,7 +1,7 @@
 s3_info:
-  bucket_name: onsen-jasper-importer-prod-data-kisara
-  access_key_id: 'xxxxxxT'
-  secret_access_key: 'Jxxxxxx'
+  bucket_name: onsen-jasper-xxxxx
+  access_key_id: 'xxxxxT'
+  secret_access_key: 'xxxxxx'
   file_name: 'pms-reservations/季さら_'
 
 csv:
@@ -10,8 +10,8 @@ csv:
   encoding: utf-8
 
 salesforce:
-  username: r.uxxx7@force.com
-  password: xxxx
+  username: xxxxx@force.com
+  password: xxxxx
   security_token:
   domain: login  # or 'test' for sandbox
 
@@ -153,6 +153,7 @@ queries:
   - name: Rooms_history
     soql: |
       SELECT Id,
+      DateOfStay__c,
       NumberOfWomen__c,
       NumberOfMen__c,
       ElementarySchoolStudentsUG__c,
@@ -179,6 +180,7 @@ queries:
   - name: Rooms_onhand
     soql: |
       SELECT Id,
+      DateOfStay__c,
       NumberOfWomen__c,
       NumberOfMen__c,
       ElementarySchoolStudentsUG__c,
